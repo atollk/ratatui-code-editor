@@ -1,6 +1,6 @@
 [package]
 name = "ratatui-code-editor"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 authors = ["vipmax"]
 description = "ratatui-code-editor is A code editor widget for ratatui, built with syntax highlighting powered by Tree-sitter."
@@ -34,8 +34,8 @@ path = "examples/lsp.rs"
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = "s" 
-strip = true 
+opt-level = "s"
+strip = true
 
 [dependencies]
 anyhow = "1.0"
@@ -44,12 +44,12 @@ ratatui = "=0.30"
 ropey = "1.6"
 rust-embed = { version = "8.7", features = ["include-exclude"] }
 streaming-iterator = "0.1"
-tree-sitter = "0.25"
+tree-sitter = "0.26"
 tree-sitter-javascript = "0.25"
 tree-sitter-rust = "0.24"
 tree-sitter-typescript = "0.23"
 unicode-width = "=0.2.0"
-unicode-segmentation = "1.11"
+unicode-segmentation = "1.12"
 arboard = { version = "3.5", default-features = false }
 tree-sitter-python = "0.25"
 tree-sitter-go = "0.25"
