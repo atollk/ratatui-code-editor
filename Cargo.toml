@@ -1,6 +1,6 @@
 [package]
 name = "ratatui-code-editor"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 authors = ["vipmax"]
 description = "ratatui-code-editor is A code editor widget for ratatui, built with syntax highlighting powered by Tree-sitter."
@@ -10,6 +10,7 @@ homepage = "https://github.com/vipmax/ratatui-code-editor"
 repository = "https://github.com/vipmax/ratatui-code-editor.git"
 keywords = ["ratatui", "terminal", "editor", "tree-sitter"]
 categories = ["command-line-interface", "text-editors"]
+exclude = [".anycode/*", "Cargo.toml.orig"]
 
 [[example]]
 name = "minimal"

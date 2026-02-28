@@ -57,8 +57,8 @@ Add this to your `Cargo.toml`:
 ```toml
 anyhow = "1.0"
 crossterm = "0.29"
-ratatui = "0.29"
-ratatui-code-editor = "0.0.1"
+ratatui = "0.30"
+ratatui-code-editor = "0.0.2"
 ```
 
 ### Basic Usage
