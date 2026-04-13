@@ -5,3 +5,4 @@ test/
 Cargo.toml
 .idea
 flamegraph.svg
+.claude
