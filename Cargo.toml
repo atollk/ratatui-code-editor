@@ -29,6 +29,12 @@ lto = true
 opt-level = "s"
 strip = true
 
+[workspace.dependencies]
+anyhow = "^1.0"
+crossterm = "~0.29"
+ratatui = "~0.30"
+ratatui-code-editor = { path = "." }
+
 [dependencies]
 anyhow = "^1.0"
 crossterm = "~0.29"
