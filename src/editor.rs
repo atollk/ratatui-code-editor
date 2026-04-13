@@ -1,7 +1,3 @@
-use crossterm::event::{
-    KeyEvent, KeyModifiers,
-    MouseEvent, MouseEventKind, MouseButton,
-};
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::prelude::*;
@@ -93,40 +89,6 @@ impl Editor {
         })
     }
 
-    pub fn input(
-        &mut self, key: KeyEvent, area: &Rect,
-    ) -> Result<()> {
-        use crossterm::event::KeyCode;
-
-        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
-        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        let _alt = key.modifiers.contains(KeyModifiers::ALT);
-
-        match key.code {
-            KeyCode::Char('÷') => self.apply(ToggleComment { }),
-            KeyCode::Char('z') if ctrl => self.apply(Undo { }),
-            KeyCode::Char('y') if ctrl => self.apply(Redo { }),
-            KeyCode::Char('c') if ctrl => self.apply(Copy { }),
-            KeyCode::Char('v') if ctrl => self.apply(Paste { }),
-            KeyCode::Char('x') if ctrl => self.apply(Cut { }),
-            KeyCode::Char('k') if ctrl => self.apply(DeleteLine { }),
-            KeyCode::Char('d') if ctrl => self.apply(Duplicate { }),
-            KeyCode::Char('a') if ctrl => self.apply(SelectAll { }),
-            KeyCode::Left      => self.apply(MoveLeft { shift }),
-            KeyCode::Right     => self.apply(MoveRight { shift }),
-            KeyCode::Up        => self.apply(MoveUp { shift }),
-            KeyCode::Down      => self.apply(MoveDown { shift }),
-            KeyCode::Backspace => self.apply(Delete { }),
-            KeyCode::Enter     => self.apply(InsertNewline { }),
-            KeyCode::Char(c)   => self.apply(InsertText { text: c.to_string() }),
-            KeyCode::Tab       => self.apply(Indent { }),
-            KeyCode::BackTab   => self.apply(UnIndent { }),
-            _ => {}
-        }
-        self.focus(&area);
-        Ok(())
-    }
-    
     pub fn focus(&mut self, area: &Rect) {
         let width = area.width as usize;
         let height = area.height as usize;
@@ -155,41 +117,8 @@ impl Editor {
         }
     }
 
-    pub fn mouse(
-        &mut self, mouse: MouseEvent, area: &Rect,
-    ) -> Result<()> {
-
-        match mouse.kind {
-            MouseEventKind::ScrollUp => self.scroll_up(),
-            MouseEventKind::ScrollDown => self.scroll_down(area.height as usize),
-            MouseEventKind::Down(MouseButton::Left) => {
-                let pos = self.cursor_from_mouse(mouse.column, mouse.row, area);
-                if let Some(cursor) = pos {
-                    self.handle_mouse_down(cursor);
-                }
-            }
-            MouseEventKind::Drag(MouseButton::Left) => {
-                // Auto-scroll when dragging on the last or first visible row
-                if mouse.row == area.top() {
-                    self.scroll_up();
-                }
-                if mouse.row == area.bottom().saturating_sub(1) {
-                    self.scroll_down(area.height as usize);
-                }
-                let pos = self.cursor_from_mouse(mouse.column, mouse.row, area);
-                if let Some(cursor) = pos {
-                    self.handle_mouse_drag(cursor);
-                }
-            }
-            MouseEventKind::Up(MouseButton::Left) => {
-                self.selection_snap = SelectionSnap::None;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    fn handle_mouse_down(&mut self, cursor: usize) {
+    /// Handles a mouse button press at the given cursor position, updating selection and click state.
+    pub fn handle_mouse_down(&mut self, cursor: usize) {
         let kind = self.clicks.register(cursor);
         let (start, end, snap) = match kind {
             ClickKind::Triple => {
@@ -208,7 +137,8 @@ impl Editor {
         self.selection_snap = snap;
     }
 
-    fn handle_mouse_drag(&mut self, cursor: usize) {
+    /// Handles a mouse drag event at the given cursor position, extending the selection.
+    pub fn handle_mouse_drag(&mut self, cursor: usize) {
         match self.selection_snap {
             SelectionSnap::Line { anchor } => {
                 let (anchor_start, anchor_end) = self.code.line_boundaries(anchor);
@@ -244,7 +174,8 @@ impl Editor {
         }
     }
 
-    fn cursor_from_mouse(
+    /// Converts mouse coordinates to a cursor position within the editor area, returning `None` if outside.
+    pub fn cursor_from_mouse(
         &self, mouse_x: u16, mouse_y: u16, area: &Rect
     ) -> Option<usize> {
         let total_lines = self.code.len_lines();

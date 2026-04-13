@@ -1,4 +1,6 @@
 pub mod editor;
+#[cfg(feature = "crossterm")]
+pub mod editor_crossterm;
 pub mod code;
 pub mod history;
 pub mod selection;
