@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use anyhow::{Result, anyhow};
+use tree_sitter::Language;
 
 // keyword and ratatui style
 type Theme = HashMap<String, Style>;
@@ -58,18 +59,17 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(lang: &str, text: &str, theme: Vec<(&str, &str)>) -> Result<Self> {
+    pub fn new(lang: Option<Language>, text: &str, theme: Vec<(&str, &str)>) -> Result<Self> {
         Self::new_with_highlights(lang, text, theme, None)
     }
 
     pub fn new_with_highlights(
-        lang: &str,
+        lang: Option<Language>,
         text: &str,
         theme: Vec<(&str, &str)>,
-        custom_highlights: Option<HashMap<String, String>>,
+        highlights: Option<String>,
     ) -> Result<Self> {
-        let code = Code::new(text, lang, custom_highlights.clone())
-            .or_else(|_| Code::new(text, "text", custom_highlights))?;
+        let code = Code::new(text, lang, highlights)?;
 
         let theme = Self::build_theme(&theme);
         let highlights_cache = RefCell::new(HashMap::new());

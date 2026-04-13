@@ -30,10 +30,12 @@ opt-level = "s"
 strip = true
 
 [workspace.dependencies]
+ratatui-code-editor = { path = ".", features = ["crossterm", "tree-sitter-languages"] }
 anyhow = "^1.0"
 crossterm = "~0.29"
 ratatui = "~0.30"
-ratatui-code-editor = { path = "." }
+tree-sitter-python = "^0.25"
+tree-sitter-rust = "^0.24"
 
 [dependencies]
 anyhow = "^1.0"
@@ -43,28 +45,52 @@ ropey = "^1.6"
 rust-embed = { version = "^8.7", features = ["include-exclude"] }
 streaming-iterator = "~0.1"
 tree-sitter = "~0.26"
-tree-sitter-javascript = "~0.25"
-tree-sitter-rust = "~0.24"
-tree-sitter-typescript = "~0.23"
 unicode-width = "~0.2"
 unicode-segmentation = "^1.12"
 arboard = { version = "^3.5", default-features = false }
-tree-sitter-python = "~0.25"
-tree-sitter-go = "~0.25"
-tree-sitter-java = "~0.23.5"
-tree-sitter-c = "~0.24.1"
-tree-sitter-cpp = "~0.23.4"
-tree-sitter-html = "~0.23.2"
-tree-sitter-css = "~0.25"
-tree-sitter-c-sharp = "~0.23.1"
-tree-sitter-yaml = "~0.7"
-tree-sitter-json = "~0.24.8"
-tree-sitter-toml-ng = "~0.7.0"
-tree-sitter-bash = "~0.25.0"
-tree-sitter-md = "~0.5.1"
+
+tree-sitter-javascript = {version= "~0.25" , optional = true}
+tree-sitter-rust = {workspace = true , optional = true}
+tree-sitter-typescript = {version= "~0.23" , optional = true}
+tree-sitter-python = {workspace = true , optional = true}
+tree-sitter-go = {version= "~0.25" , optional = true}
+tree-sitter-java = {version= "~0.23.5" , optional = true}
+tree-sitter-c = {version="~0.24.1", optional = true}
+tree-sitter-cpp = {version= "~0.23.4" , optional = true}
+tree-sitter-html = {version= "~0.23.2" , optional = true}
+tree-sitter-css = {version= "~0.25" , optional = true}
+tree-sitter-c-sharp = {version= "~0.23.1" , optional = true}
+tree-sitter-yaml = {version= "~0.7" , optional = true}
+tree-sitter-json = {version= "~0.24.8" , optional = true}
+tree-sitter-toml-ng = {version= "~0.7.0" , optional = true}
+tree-sitter-bash = {version= "~0.25.0" , optional = true}
+tree-sitter-md = {version= "~0.5.1" , optional = true}
+
+[dev-dependencies]
+tree-sitter-python = {workspace = true}
+tree-sitter-rust = {workspace = true}
+
 
 [features]
 default = ["crossterm"]
 crossterm = [
     "dep:crossterm"
+]
+tree-sitter-languages = [
+    "dep:tree-sitter-javascript",
+    "dep:tree-sitter-rust",
+    "dep:tree-sitter-typescript",
+    "dep:tree-sitter-python",
+    "dep:tree-sitter-go",
+    "dep:tree-sitter-java",
+    "dep:tree-sitter-c",
+    "dep:tree-sitter-cpp",
+    "dep:tree-sitter-html",
+    "dep:tree-sitter-css",
+    "dep:tree-sitter-c-sharp",
+    "dep:tree-sitter-yaml",
+    "dep:tree-sitter-json",
+    "dep:tree-sitter-toml-ng",
+    "dep:tree-sitter-bash",
+    "dep:tree-sitter-md",
 ]

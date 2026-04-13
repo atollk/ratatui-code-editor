@@ -1,23 +1,17 @@
+use crate::history::History;
+use crate::selection::Selection;
+use crate::utils::{calculate_end_position, comment as lang_comment, count_indent_units, indent};
 use anyhow::{Result, anyhow};
 use ropey::{Rope, RopeSlice};
+use rust_embed::RustEmbed;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{InputEdit, Point, QueryCursor};
-use tree_sitter::{Language, Parser, Query, Tree, Node};
-use crate::history::{History};
-use crate::selection::Selection;
-use rust_embed::RustEmbed;
-use std::collections::HashMap;
-use crate::utils::{indent, count_indent_units, comment as lang_comment, calculate_end_position};
-use std::cell::RefCell;
-use std::rc::Rc;
+use tree_sitter::{Language, Node, Parser, Query, Tree};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
-use unicode_width::{UnicodeWidthStr};
-
-#[derive(RustEmbed)]
-#[folder = ""]
-#[include = "langs/*/*"]
-struct LangAssets;
-
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone)]
 pub enum EditKind {
@@ -39,13 +33,12 @@ pub struct EditBatch {
 
 impl EditBatch {
     pub fn new() -> Self {
-        Self { 
-            edits: Vec::new(), 
+        Self {
+            edits: Vec::new(),
             state_before: None,
             state_after: None,
         }
     }
-
 }
 
 #[derive(Clone, Copy)]
@@ -54,10 +47,9 @@ pub struct EditState {
     pub selection: Option<Selection>,
 }
 
-
 pub struct Code {
     content: ropey::Rope,
-    lang: String,
+    language: Option<Language>,
     tree: Option<Tree>,
     parser: Option<Parser>,
     query: Option<Query>,
@@ -67,19 +59,15 @@ pub struct Code {
     injection_parsers: Option<HashMap<String, Rc<RefCell<Parser>>>>,
     injection_queries: Option<HashMap<String, Query>>,
     change_callback: Option<Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>>,
-    custom_highlights: Option<HashMap<String, String>>,
+    highlights: Option<String>,
 }
 
 impl Code {
     /// Create a new `Code` instance with the given text and language.
-    pub fn new(
-        text: &str,
-        lang: &str,
-        custom_highlights: Option<HashMap<String, String>>,
-    ) -> Result<Self> {
+    pub fn new(text: &str, language: Option<Language>, highlights: Option<String>) -> Result<Self> {
         let mut code = Self {
             content: Rope::from_str(text),
-            lang: lang.to_string(),
+            language: language,
             tree: None,
             parser: None,
             query: None,
@@ -89,70 +77,33 @@ impl Code {
             injection_parsers: None,
             injection_queries: None,
             change_callback: None,
-            custom_highlights,
+            highlights,
         };
 
-        if let Some(language) = Self::get_language(lang) {
-            let highlights = code.get_highlights(lang)?;
+        if let Some(lang) = &code.language {
             let mut parser = Parser::new();
-            parser.set_language(&language)?;
+            parser.set_language(lang)?;
             let tree = parser.parse(text, None);
-            let query = Query::new(&language, &highlights)?;
-            let (iparsers, iqueries) = code.init_injections(&query)?;
             code.tree = tree;
             code.parser = Some(parser);
-            code.query = Some(query);
-            code.injection_parsers = Some(iparsers);
-            code.injection_queries = Some(iqueries);
+
+            if let Some(highlights) = &code.highlights {
+                let query = Query::new(lang, &highlights)?;
+                let (iparsers, iqueries) = code.init_injections(&query, lang)?;
+                code.query = Some(query);
+                code.injection_parsers = Some(iparsers);
+                code.injection_queries = Some(iqueries);
+            }
         }
 
         Ok(code)
     }
 
-    fn get_language(lang: &str) -> Option<Language> {
-        match lang {
-            "rust" => Some(tree_sitter_rust::LANGUAGE.into()),
-            "javascript" => Some(tree_sitter_javascript::LANGUAGE.into()),
-            "typescript" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
-            "python" => Some(tree_sitter_python::LANGUAGE.into()),
-            "go" => Some(tree_sitter_go::LANGUAGE.into()),
-            "java" => Some(tree_sitter_java::LANGUAGE.into()),
-            "c_sharp" => Some(tree_sitter_c_sharp::LANGUAGE.into()),
-            "c" => Some(tree_sitter_c::LANGUAGE.into()),
-            "cpp" => Some(tree_sitter_cpp::LANGUAGE.into()),
-            "html" => Some(tree_sitter_html::LANGUAGE.into()),
-            "css" => Some(tree_sitter_css::LANGUAGE.into()),
-            "yaml" => Some(tree_sitter_yaml::LANGUAGE.into()),
-            "json" => Some(tree_sitter_json::LANGUAGE.into()),
-            "toml" => Some(tree_sitter_toml_ng::LANGUAGE.into()),
-            "shell" => Some(tree_sitter_bash::LANGUAGE.into()),
-            "markdown" => Some(tree_sitter_md::LANGUAGE.into()),
-            "markdown-inline" => Some(tree_sitter_md::INLINE_LANGUAGE.into()),
-            _ => None,
-        }
-    }
-
-    fn get_highlights(&self, lang: &str) -> anyhow::Result<String> {
-        if let Some(highlights_map) = &self.custom_highlights {
-            if let Some(highlights) = highlights_map.get(lang) {
-                return Ok(highlights.clone());
-            }
-        }
-        let p = format!("langs/{}/highlights.scm", lang);
-        let highlights_bytes =
-            LangAssets::get(&p).ok_or_else(|| anyhow!("No highlights found for {}", lang))?;
-        let highlights_bytes = highlights_bytes.data.as_ref();
-        let highlights = std::str::from_utf8(highlights_bytes)?;
-        Ok(highlights.to_string())
-    }
-
     fn init_injections(
         &self,
         query: &Query,
-    ) -> anyhow::Result<(
-        HashMap<String, Rc<RefCell<Parser>>>,
-        HashMap<String, Query>,
-    )> {
+        language: &Language,
+    ) -> anyhow::Result<(HashMap<String, Rc<RefCell<Parser>>>, HashMap<String, Query>)> {
         let mut injection_parsers = HashMap::new();
         let mut injection_queries = HashMap::new();
 
@@ -161,16 +112,12 @@ impl Code {
                 if injection_parsers.contains_key(lang) {
                     continue;
                 }
-                if let Some(language) = Self::get_language(lang) {
-                    let mut parser = Parser::new();
-                    parser.set_language(&language)?;
-                    let highlights = self.get_highlights(lang)?;
+                let mut parser = Parser::new();
+                parser.set_language(&language)?;
+                if let Some(highlights) = &self.highlights {
                     let inj_query = Query::new(&language, &highlights)?;
-
                     injection_parsers.insert(lang.to_string(), Rc::new(RefCell::new(parser)));
                     injection_queries.insert(lang.to_string(), inj_query);
-                } else {
-                    eprintln!("Unknown injection language: {}", lang);
                 }
             }
         }
@@ -189,11 +136,11 @@ impl Code {
         let line_start = self.content.line_to_char(row);
         line_start + col
     }
-    
+
     pub fn get_content(&self) -> String {
         self.content.to_string()
     }
-    
+
     pub fn slice(&self, start: usize, end: usize) -> String {
         self.content.slice(start..end).to_string()
     }
@@ -226,7 +173,7 @@ impl Code {
             len.saturating_sub(1)
         }
     }
-    
+
     pub fn line(&self, line_idx: usize) -> RopeSlice<'_> {
         self.content.line(line_idx)
     }
@@ -234,23 +181,23 @@ impl Code {
     pub fn char_to_line(&self, char_idx: usize) -> usize {
         self.content.char_to_line(char_idx)
     }
-    
+
     pub fn char_slice(&self, start: usize, end: usize) -> RopeSlice<'_> {
         self.content.slice(start..end)
     }
-    
+
     pub fn byte_slice(&self, start: usize, end: usize) -> RopeSlice<'_> {
         self.content.byte_slice(start..end)
     }
-    
+
     pub fn byte_to_line(&self, byte_idx: usize) -> usize {
         self.content.byte_to_line(byte_idx)
     }
-    
+
     pub fn byte_to_char(&self, byte_idx: usize) -> usize {
         self.content.byte_to_char(byte_idx)
     }
-    
+
     pub fn tx(&mut self) {
         self.current_batch = EditBatch::new();
     }
@@ -270,13 +217,13 @@ impl Code {
             self.current_batch = EditBatch::new();
         }
     }
-    
+
     pub fn insert(&mut self, from: usize, text: &str) {
         let byte_idx = self.content.char_to_byte(from);
         let byte_len: usize = text.chars().map(|ch| ch.len_utf8()).sum();
-        
+
         self.content.insert(from, text);
-        
+
         if self.applying_history {
             self.current_batch.edits.push(Edit {
                 kind: EditKind::Insert {
@@ -285,7 +232,7 @@ impl Code {
                 },
             });
         }
-        
+
         if self.tree.is_some() {
             self.edit_tree(InputEdit {
                 start_byte: byte_idx,
@@ -302,9 +249,9 @@ impl Code {
         let from_byte = self.content.char_to_byte(from);
         let to_byte = self.content.char_to_byte(to);
         let removed_text = self.content.slice(from..to).to_string();
-        
+
         self.content.remove(from..to);
-        
+
         if self.applying_history {
             self.current_batch.edits.push(Edit {
                 kind: EditKind::Remove {
@@ -313,7 +260,7 @@ impl Code {
                 },
             });
         }
-        
+
         if self.tree.is_some() {
             self.edit_tree(InputEdit {
                 start_byte: from_byte,
@@ -354,16 +301,25 @@ impl Code {
     pub fn is_highlight(&self) -> bool {
         self.query.is_some()
     }
-    
-    /// Highlights the interval between `start` and `end` char indices.
-    /// Returns a list of (start byte, end byte, token_name) for highlighting. 
-    pub fn highlight_interval<T: Copy>(
-        &self, start: usize, end: usize, theme: &HashMap<String, T>,
-    ) -> Vec<(usize, usize, T)> {
-        if start > end { panic!("Invalid range") }
 
-        let Some(query) = &self.query else { return vec![]; };
-        let Some(tree) = &self.tree else { return vec![]; };
+    /// Highlights the interval between `start` and `end` char indices.
+    /// Returns a list of (start byte, end byte, token_name) for highlighting.
+    pub fn highlight_interval<T: Copy>(
+        &self,
+        start: usize,
+        end: usize,
+        theme: &HashMap<String, T>,
+    ) -> Vec<(usize, usize, T)> {
+        if start > end {
+            panic!("Invalid range")
+        }
+
+        let Some(query) = &self.query else {
+            return vec![];
+        };
+        let Some(tree) = &self.tree else {
+            return vec![];
+        };
 
         let text = self.content.slice(..);
         let root_node = tree.root_node();
@@ -423,17 +379,27 @@ impl Code {
                         *value,
                     ));
                 } else if let Some(lang) = name.strip_prefix("injection.content.") {
-                    let Some(injection_parsers) = injection_parsers else { continue };
-                    let Some(injection_queries) = injection_queries else { continue };
-                    let Some(parser) = injection_parsers.get(lang) else { continue };
-                    let Some(injection_query) = injection_queries.get(lang) else { continue };
+                    let Some(injection_parsers) = injection_parsers else {
+                        continue;
+                    };
+                    let Some(injection_queries) = injection_queries else {
+                        continue;
+                    };
+                    let Some(parser) = injection_parsers.get(lang) else {
+                        continue;
+                    };
+                    let Some(injection_query) = injection_queries.get(lang) else {
+                        continue;
+                    };
 
                     let start = capture.node.start_byte();
                     let end = capture.node.end_byte();
                     let slice = text.byte_slice(start..end);
 
                     let mut parser = parser.borrow_mut();
-                    let Some(inj_tree) = parser.parse(slice.to_string(), None) else { continue };
+                    let Some(inj_tree) = parser.parse(slice.to_string(), None) else {
+                        continue;
+                    };
 
                     let injection_results = Self::highlight(
                         slice,
@@ -456,11 +422,10 @@ impl Code {
         results
     }
 
-
     pub fn undo(&mut self) -> Option<EditBatch> {
         let batch = self.history.undo()?;
         self.applying_history = false;
-    
+
         for edit in batch.edits.iter().rev() {
             match edit.kind {
                 EditKind::Insert { offset, ref text } => {
@@ -471,15 +436,15 @@ impl Code {
                 }
             }
         }
-    
+
         self.applying_history = true;
         Some(batch)
     }
-    
+
     pub fn redo(&mut self) -> Option<EditBatch> {
         let batch = self.history.redo()?;
         self.applying_history = false;
-    
+
         for edit in &batch.edits {
             match edit.kind {
                 EditKind::Insert { offset, ref text } => {
@@ -490,19 +455,19 @@ impl Code {
                 }
             }
         }
-    
+
         self.applying_history = true;
         Some(batch)
     }
-    
+
     pub fn word_boundaries(&self, pos: usize) -> (usize, usize) {
         let len = self.content.len_chars();
         if pos >= len {
             return (pos, pos);
         }
-    
+
         let is_word_char = |c: char| c.is_alphanumeric() || c == '_';
-    
+
         let mut start = pos;
         while start > 0 {
             let c = self.content.char(start - 1);
@@ -511,7 +476,7 @@ impl Code {
             }
             start -= 1;
         }
-    
+
         let mut end = pos;
         while end < len {
             let c = self.content.char(end);
@@ -520,7 +485,7 @@ impl Code {
             }
             end += 1;
         }
-    
+
         (start, end)
     }
 
@@ -536,60 +501,63 @@ impl Code {
 
         (start, end)
     }
-    
+
     pub fn indent(&self) -> String {
-        indent(&self.lang)
+        indent(self.language.as_ref().map(Language::name).flatten()).to_string()
     }
 
     pub fn comment(&self) -> String {
-        lang_comment(&self.lang).to_string()
+        lang_comment(self.language.as_ref().map(|l| l.name()).flatten()).to_string()
     }
 
     pub fn indentation_level(&self, line: usize, col: usize) -> usize {
-        if self.lang == "unknown" || self.lang.is_empty() { return 0; }
         let line_str = self.line(line);
         count_indent_units(line_str, &self.indent(), Some(col))
     }
 
     pub fn is_only_indentation_before(&self, r: usize, c: usize) -> bool {
-        if self.lang == "unknown" || self.lang.is_empty() { return false; }
-        if r >= self.len_lines() || c == 0 { return false; }
-    
+        if r >= self.len_lines() || c == 0 {
+            return false;
+        }
+
         let line = self.line(r);
         let indent_unit = self.indent();
-    
+
         if indent_unit.is_empty() {
             return line.chars().take(c).all(|ch| ch.is_whitespace());
         }
-    
+
         let count_units = count_indent_units(line, &indent_unit, Some(c));
         let only_indent = count_units * indent_unit.chars().count() >= c;
         only_indent
     }
 
     pub fn find_indent_at_line_start(&self, line_idx: usize) -> Option<usize> {
-        if line_idx >= self.len_lines() { return None; }
-    
+        if line_idx >= self.len_lines() {
+            return None;
+        }
+
         let line = self.line(line_idx);
         let indent_unit = self.indent();
-        if indent_unit.is_empty() { return None; }
-    
+        if indent_unit.is_empty() {
+            return None;
+        }
+
         let count_units = count_indent_units(line, &indent_unit, None);
         let col = count_units * indent_unit.chars().count();
         if col > 0 { Some(col) } else { None }
     }
 
     /// Paste text with **indentation awareness**.
-    /// 
+    ///
     /// 1. Determine the indentation level at the cursor (`base_level`).
     /// 2. The first line of the pasted block is inserted at the cursor level (trimmed).
     /// 3. Subsequent lines adjust their indentation **relative to the previous non-empty line in the pasted block**:
     ///    - Compute `diff` = change in indentation from the previous non-empty line in the source block (clamped ±1).
     ///    - Apply `diff` to `prev_nonempty_level` to calculate the new insertion level.
     /// 4. Empty lines are inserted as-is and do not affect subsequent indentation.
-    /// 
+    ///
     /// This ensures that pasted blocks keep their relative structure while aligning to the cursor.
-
 
     /// Inserts `text` with indentation-awareness at `offset`.
     /// Returns number of characters inserted.
@@ -654,7 +622,10 @@ impl Code {
     }
 
     /// Set the change callback function for handling document changes
-    pub fn set_change_callback(&mut self, callback: Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>) {
+    pub fn set_change_callback(
+        &mut self,
+        callback: Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>,
+    ) {
         self.change_callback = Some(callback);
     }
 
@@ -662,7 +633,7 @@ impl Code {
     fn notify_changes(&self, edits: &[Edit]) {
         if let Some(callback) = &self.change_callback {
             let mut changes = Vec::new();
-            
+
             for edit in edits {
                 match &edit.kind {
                     EditKind::Insert { offset, text } => {
@@ -676,13 +647,12 @@ impl Code {
                     }
                 }
             }
-            
+
             if !changes.is_empty() {
                 callback(changes);
             }
         }
     }
-    
 }
 
 /// An iterator over byte slices of Rope chunks.
@@ -817,14 +787,13 @@ pub fn grapheme_width(g: RopeSlice) -> usize {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_insert() {
-        let mut code = Code::new("", "", None).unwrap();
+        let mut code = Code::new("", None, None).unwrap();
         code.insert(0, "Hello ");
         code.insert(6, "World");
         assert_eq!(code.content.to_string(), "Hello World");
@@ -832,14 +801,14 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut code = Code::new("Hello World", "", None).unwrap();
+        let mut code = Code::new("Hello World", None, None).unwrap();
         code.remove(5, 11);
         assert_eq!(code.content.to_string(), "Hello");
     }
 
     #[test]
     fn test_undo() {
-        let mut code = Code::new("", "", None).unwrap();
+        let mut code = Code::new("", None, None).unwrap();
 
         code.tx();
         code.insert(0, "Hello ");
@@ -858,7 +827,7 @@ mod tests {
 
     #[test]
     fn test_redo() {
-        let mut code = Code::new("", "", None).unwrap();
+        let mut code = Code::new("", None, None).unwrap();
 
         code.tx();
         code.insert(0, "Hello");
@@ -873,28 +842,31 @@ mod tests {
 
     #[test]
     fn test_indentation_level0() {
-        let mut code = Code::new("", "unknown", None).unwrap();
+        let mut code = Code::new("", None, None).unwrap();
         code.insert(0, "    hello world");
         assert_eq!(code.indentation_level(0, 10), 0);
     }
 
     #[test]
     fn test_indentation_level() {
-        let mut code = Code::new("", "python", None).unwrap();
+        let mut code =
+            Code::new("", Some(Language::from(tree_sitter_python::LANGUAGE)), None).unwrap();
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 1);
     }
 
     #[test]
     fn test_indentation_level2() {
-        let mut code = Code::new("", "python", None).unwrap();
+        let mut code =
+            Code::new("", Some(Language::from(tree_sitter_python::LANGUAGE)), None).unwrap();
         code.insert(0, "        print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 2);
     }
 
     #[test]
     fn test_is_only_indentation_before() {
-        let mut code = Code::new("", "python", None).unwrap();
+        let mut code =
+            Code::new("", Some(Language::from(tree_sitter_python::LANGUAGE)), None).unwrap();
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.is_only_indentation_before(0, 4), true);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -902,7 +874,7 @@ mod tests {
 
     #[test]
     fn test_is_only_indentation_before2() {
-        let mut code = Code::new("", "", None).unwrap();
+        let mut code = Code::new("", None, None).unwrap();
         code.insert(0, "    Hello, World");
         assert_eq!(code.is_only_indentation_before(0, 4), false);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -911,28 +883,36 @@ mod tests {
     #[test]
     fn test_smart_paste_1() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(initial, "rust", None).unwrap();
+        let mut code = Code::new(
+            initial,
+            Some(Language::from(tree_sitter_rust::LANGUAGE)),
+            None,
+        )
+        .unwrap();
 
         let offset = 30;
         let paste = "if start == end && start == self.code.len() {\n    return;\n}";
         code.smart_paste(offset, paste);
 
-        let expected =
-            "fn foo() {\n    let x = 1;\n    if start == end && start == self.code.len() {\n        return;\n    }\n}";
+        let expected = "fn foo() {\n    let x = 1;\n    if start == end && start == self.code.len() {\n        return;\n    }\n}";
         assert_eq!(code.get_content(), expected);
     }
 
     #[test]
     fn test_smart_paste_2() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(initial, "rust", None).unwrap();
+        let mut code = Code::new(
+            initial,
+            Some(Language::from(tree_sitter_rust::LANGUAGE)),
+            None,
+        )
+        .unwrap();
 
         let offset = 30;
         let paste = "    if start == end && start == self.code.len() {\n        return;\n    }";
         code.smart_paste(offset, paste);
 
-        let expected =
-            "fn foo() {\n    let x = 1;\n    if start == end && start == self.code.len() {\n        return;\n    }\n}";
+        let expected = "fn foo() {\n    let x = 1;\n    if start == end && start == self.code.len() {\n        return;\n    }\n}";
         assert_eq!(code.get_content(), expected);
     }
 }

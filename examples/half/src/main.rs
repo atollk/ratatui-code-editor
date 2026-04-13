@@ -15,10 +15,11 @@ use ratatui::widgets::{Block, Borders};
 use std::io::stdout;
 use ratatui_code_editor::editor::Editor;
 use ratatui_code_editor::theme::vesper;
+use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
 
 fn main() -> anyhow::Result<()> {
     let filename = "src/code.rs";
-    let language = "rust";
+    let language = get_language_by_name("rust");
     let content = std::fs::read_to_string(filename)?;    
     
     enable_raw_mode()?;
@@ -30,7 +31,7 @@ fn main() -> anyhow::Result<()> {
     
     let theme = vesper();
 
-    let mut editor = Editor::new(&language, &content, theme)?;
+    let mut editor = Editor::new(language, &content, theme)?;
 
     let mut editor_area = ratatui::layout::Rect::default(); 
 

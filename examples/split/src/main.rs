@@ -16,11 +16,12 @@ use crossterm::event::MouseEvent;
 use std::io::stdout;
 use ratatui_code_editor::editor::Editor;
 use ratatui_code_editor::theme::vesper;
+use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
 
 fn main() -> anyhow::Result<()> {
     let filename1 = "src/code.rs";
     let filename2 = "src/editor.rs";
-    let language = "rust";
+    let language = get_language_by_name("rust");
     let content1 = std::fs::read_to_string(filename1).unwrap_or_default();
     let content2 = std::fs::read_to_string(filename2).unwrap_or_default();
 
@@ -33,8 +34,8 @@ fn main() -> anyhow::Result<()> {
     
     let theme = vesper();
 
-    let mut editor1 = Editor::new(&language, &content1, theme.clone())?;
-    let mut editor2 = Editor::new(&language, &content2, theme)?;
+    let mut editor1 = Editor::new(language.clone(), &content1, theme.clone())?;
+    let mut editor2 = Editor::new(language, &content2, theme)?;
 
     let mut editor1_area = ratatui::layout::Rect::default(); 
     let mut editor2_area = ratatui::layout::Rect::default(); 

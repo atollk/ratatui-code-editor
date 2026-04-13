@@ -1,51 +1,31 @@
-pub fn get_lang(filename: &str) -> String {
+use tree_sitter::Language;
 
-    let extension = std::path::Path::new(filename)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("");
-
-    match extension {
-        "rs" => "rust",
-        "js" | "jsx"  => "javascript",
-        "ts" | "tsx"=> "typescript",
-        "py" => "python",
-        "go" => "go",
-        "java" => "java",
-        "cpp"  => "cpp",
-        "c" => "c",
-        "cs" => "c_sharp",
-        "html" => "html",
-        "css" => "css",
-        "json" => "json",
-        "toml" => "toml",
-        "yaml" | "yml" => "yaml",
-        "sh" | "bash" => "shell",
-        "md" => "markdown",
-        _ => "unknown",
-    }
-    .to_string()
-}
-
-pub fn indent(lang: &str) -> String {
-    match lang {
-        "rust" |"python" | "php" | "toml" | "c"  | "cpp" |
-        "zig" | "kotlin" | "erlang" | "html" | "sql" => {
-            "    ".to_string()
-        },
-        "go" | "c_sharp" => {
-            "\t".to_string()
-        },
-
-        _ => "  ".to_string(),
+pub fn indent(lang_name: Option<&str>) -> &'static str {
+    if let Some(lang) = lang_name {
+        match lang {
+            "rust" | "python" | "php" | "toml" | "c" | "cpp" |
+            "zig" | "kotlin" | "erlang" | "html" | "sql" => {
+                "    "
+            }
+            "go" | "c_sharp" => {
+                "\t"
+            }
+            _ => "  "
+        }
+    } else {
+        "  "
     }
 }
 
-pub fn comment(lang: &str) -> &'static str {
-    match lang {
-        "python" | "shell" => "#",
-        "lua" => "--",
-        _ => "//",
+pub fn comment(lang_name: Option<&str>) -> &'static str {
+    if let Some(lang) = lang_name {
+        match lang {
+            "python" | "shell" => "#",
+            "lua" => "--",
+            _ => "//",
+        }
+    } else {
+        "//"
     }
 }
 

@@ -13,7 +13,7 @@ use ratatui::{Terminal, backend::CrosstermBackend, layout::Position};
 use std::io::stdout;
 use ratatui_code_editor::editor::Editor;
 use ratatui_code_editor::theme::vesper;
-use ratatui_code_editor::utils::get_lang;
+use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -25,7 +25,8 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     };
     
-    let language = get_lang(filename);
+    let language_name = get_lang_name_from_file_extension(filename);
+    let language = get_language_by_name(&language_name);
     let content = std::fs::read_to_string(filename)?;
 
     enable_raw_mode()?;
@@ -37,7 +38,7 @@ fn main() -> anyhow::Result<()> {
     
     let theme = vesper();
 
-    let mut editor = Editor::new(&language, &content, theme)?;
+    let mut editor = Editor::new(language, &content, theme)?;
     let mut editor_area = ratatui::layout::Rect::default(); 
 
     loop {
@@ -94,4 +95,33 @@ fn save_to_file(content: &str, path: &str) -> anyhow::Result<()> {
 fn is_save_pressed(key: KeyEvent) -> bool {
     key.modifiers.contains(KeyModifiers::CONTROL) &&
         key.code == KeyCode::Char('s')
+}
+
+fn get_lang_name_from_file_extension(filename: &str) -> String {
+
+    let extension = std::path::Path::new(filename)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+
+    match extension {
+        "rs" => "rust",
+        "js" | "jsx"  => "javascript",
+        "ts" | "tsx"=> "typescript",
+        "py" => "python",
+        "go" => "go",
+        "java" => "java",
+        "cpp"  => "cpp",
+        "c" => "c",
+        "cs" => "c_sharp",
+        "html" => "html",
+        "css" => "css",
+        "json" => "json",
+        "toml" => "toml",
+        "yaml" | "yml" => "yaml",
+        "sh" | "bash" => "shell",
+        "md" => "markdown",
+        _ => "unknown",
+    }
+        .to_string()
 }
