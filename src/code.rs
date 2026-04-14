@@ -1,9 +1,8 @@
 use crate::history::History;
 use crate::selection::Selection;
 use crate::utils::{calculate_end_position, comment as lang_comment, count_indent_units, indent};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use ropey::{Rope, RopeSlice};
-use rust_embed::RustEmbed;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

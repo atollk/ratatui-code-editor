@@ -1,5 +1,3 @@
-use tree_sitter::Language;
-
 pub fn indent(lang_name: Option<&str>) -> &'static str {
     if let Some(lang) = lang_name {
         match lang {
