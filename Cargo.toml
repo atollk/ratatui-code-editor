@@ -47,7 +47,7 @@ streaming-iterator = "~0.1"
 tree-sitter = "~0.26"
 unicode-width = "~0.2"
 unicode-segmentation = "^1.12"
-arboard = { version = "^3.5", default-features = false }
+arboard = { version = "^3.5", default-features = false, optional = true }
 
 tree-sitter-javascript = {version= "~0.25" , optional = true}
 tree-sitter-rust = {workspace = true , optional = true}
@@ -70,11 +70,13 @@ tree-sitter-md = {version= "~0.5.1" , optional = true}
 tree-sitter-python = {workspace = true}
 tree-sitter-rust = {workspace = true}
 
-
 [features]
-default = ["crossterm"]
+default = ["crossterm", "arboard"]
 crossterm = [
     "dep:crossterm"
+]
+arboard = [
+    "dep:arboard"
 ]
 tree-sitter-languages = [
     "dep:tree-sitter-javascript",

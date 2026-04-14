@@ -47,8 +47,8 @@ pub struct Editor {
     /// Selection snapping mode (to word, to line, or none)
     pub(crate) selection_snap: SelectionSnap,
 
-    /// Fallback clipboard storage when the system clipboard is unavailable
-    pub(crate) clipboard: Option<String>,
+    /// Clipboard storage in memory, in case no system-clipboard is being used
+    pub(crate) clipboard: String,
 
     /// User marks for intervals: (start, end, color)
     pub(crate) marks: Option<Vec<(usize, usize, Color)>>,
@@ -82,7 +82,7 @@ impl Editor {
             selection: None,
             clicks: ClickTracker::new(Duration::from_millis(700)),
             selection_snap: SelectionSnap::None,
-            clipboard: None,
+            clipboard: String::new(),
             marks: None,
             highlights_cache,
         })
@@ -349,18 +349,23 @@ impl Editor {
     }
 
     pub fn set_clipboard(&mut self, text: &str) -> Result<()> {
-        arboard::Clipboard::new()
-            .and_then(|mut c| c.set_text(text.to_string()))
-            .unwrap_or_else(|_| self.clipboard = Some(text.to_string()));
+        self.clipboard = text.to_string();
+        #[cfg(feature = "arboard")]
+        {
+            arboard::Clipboard::new().and_then(|mut c| c.set_text(text.to_string()))?;
+        }
         Ok(())
     }
 
     pub fn get_clipboard(&self) -> Result<String> {
-        arboard::Clipboard::new()
-            .and_then(|mut c| c.get_text())
-            .ok()
-            .or_else(|| self.clipboard.clone())
-            .ok_or_else(|| anyhow!("cant get clipboard"))
+        #[cfg(feature = "arboard")]
+        {
+            return arboard::Clipboard::new()
+                .and_then(|mut c| c.get_text())
+                .ok()
+                .ok_or_else(|| anyhow!("cant get clipboard"));
+        }
+        Ok(self.clipboard.clone())
     }
 
     pub fn set_marks(&mut self, marks: Vec<(usize, usize, &str)>) {
