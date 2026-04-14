@@ -1,14 +1,3 @@
-[workspace]
-members = [
-    ".",
-    "examples/minimal",
-    "examples/editor",
-    "examples/half",
-    "examples/split",
-    "examples/marks",
-    "examples/lsp",
-]
-
 [package]
 name = "ratatui-code-editor"
 version = "0.1.0"
@@ -28,6 +17,17 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[workspace]
+members = [
+    ".",
+    "examples/minimal",
+    "examples/editor",
+    "examples/half",
+    "examples/split",
+    "examples/marks",
+    "examples/lsp",
+]
 
 [workspace.dependencies]
 ratatui-code-editor = { path = ".", features = ["crossterm", "tree-sitter-languages"] }

@@ -1,30 +1,26 @@
 use crossterm::{
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, 
-        Event, KeyCode, KeyModifiers, KeyEvent
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers,
     },
     execute,
-    terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, 
-        disable_raw_mode, enable_raw_mode
-    },
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend, layout::Position};
-use std::io::stdout;
 use ratatui_code_editor::editor::Editor;
 use ratatui_code_editor::theme::vesper;
 use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
+use std::io::stdout;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    
+
     let filename = if args.len() > 1 {
         &args[1]
     } else {
         eprintln!("Usage: cargo run --release --example editor <filename>");
         return Ok(());
     };
-    
+
     let language_name = get_lang_name_from_file_extension(filename);
     let language = get_language_by_name(&language_name);
     let content = std::fs::read_to_string(filename)?;
@@ -35,21 +31,20 @@ fn main() -> anyhow::Result<()> {
 
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
-    
+
     let theme = vesper();
 
     let mut editor = Editor::new(language, &content, theme)?;
-    let mut editor_area = ratatui::layout::Rect::default(); 
+    let mut editor_area = ratatui::layout::Rect::default();
 
     loop {
-
         terminal.draw(|f| {
             let area = f.area();
             editor_area = area;
             f.render_widget(&editor, area);
-            
+
             let cursor = editor.get_visible_cursor(&area);
-            if let Some((x,y)) = cursor {
+            if let Some((x, y)) = cursor {
                 f.set_cursor_position(Position::new(x, y));
             }
         })?;
@@ -68,8 +63,8 @@ fn main() -> anyhow::Result<()> {
                 }
                 Event::Mouse(mouse) => {
                     editor.mouse(mouse, &editor_area)?;
-                },
-                Event::Resize(_, _) => { }
+                }
+                Event::Resize(_, _) => {}
                 _ => {}
             }
         }
@@ -86,19 +81,17 @@ fn main() -> anyhow::Result<()> {
 
 fn save_to_file(content: &str, path: &str) -> anyhow::Result<()> {
     use std::io::Write;
-    
+
     let mut file = std::fs::File::create(path)?;
     file.write_all(content.as_bytes())?;
     Ok(())
 }
 
 fn is_save_pressed(key: KeyEvent) -> bool {
-    key.modifiers.contains(KeyModifiers::CONTROL) &&
-        key.code == KeyCode::Char('s')
+    key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('s')
 }
 
 fn get_lang_name_from_file_extension(filename: &str) -> String {
-
     let extension = std::path::Path::new(filename)
         .extension()
         .and_then(|ext| ext.to_str())
@@ -106,12 +99,12 @@ fn get_lang_name_from_file_extension(filename: &str) -> String {
 
     match extension {
         "rs" => "rust",
-        "js" | "jsx"  => "javascript",
-        "ts" | "tsx"=> "typescript",
+        "js" | "jsx" => "javascript",
+        "ts" | "tsx" => "typescript",
         "py" => "python",
         "go" => "go",
         "java" => "java",
-        "cpp"  => "cpp",
+        "cpp" => "cpp",
         "c" => "c",
         "cs" => "c_sharp",
         "html" => "html",
@@ -123,5 +116,5 @@ fn get_lang_name_from_file_extension(filename: &str) -> String {
         "md" => "markdown",
         _ => "unknown",
     }
-        .to_string()
+    .to_string()
 }

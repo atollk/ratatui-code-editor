@@ -1,28 +1,25 @@
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{
-        enable_raw_mode, disable_raw_mode, 
-        EnterAlternateScreen, LeaveAlternateScreen
-    },
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{Terminal, backend::CrosstermBackend, layout::{Position}};
+use ratatui::{Terminal, backend::CrosstermBackend, layout::Position};
 use ratatui_code_editor::editor::Editor;
 use ratatui_code_editor::theme::vesper;
-use std::io::stdout;
 use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
+use std::io::stdout;
 
 fn main() -> anyhow::Result<()> {
     enable_raw_mode()?;
     execute!(stdout(), EnterAlternateScreen)?;
-    
+
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
-    
+
     let content = "fn main() {\n    println!(\"Hello, world!\");\n}";
     let mut editor = Editor::new(get_language_by_name("rust"), content, vesper())?;
     let mut editor_area = ratatui::layout::Rect::default();
-    
+
     loop {
         terminal.draw(|f| {
             let area = f.area();
@@ -30,11 +27,11 @@ fn main() -> anyhow::Result<()> {
             f.render_widget(&editor, editor_area);
 
             let cursor = editor.get_visible_cursor(&area);
-            if let Some((x,y)) = cursor {
+            if let Some((x, y)) = cursor {
                 f.set_cursor_position(Position::new(x, y));
             }
         })?;
-        
+
         if let Event::Key(key) = event::read()? {
             if key.code == KeyCode::Esc {
                 break;
@@ -42,8 +39,8 @@ fn main() -> anyhow::Result<()> {
             editor.input(key, &editor_area)?;
         }
     }
-    
+
     disable_raw_mode()?;
-    execute!(stdout(), LeaveAlternateScreen)?;    
+    execute!(stdout(), LeaveAlternateScreen)?;
     Ok(())
 }

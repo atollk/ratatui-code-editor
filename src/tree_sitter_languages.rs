@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use rust_embed::RustEmbed;
 use tree_sitter::Language;
 
-#[cfg(feature = "tree-sitter-languages")]
 pub fn get_language_by_name(lang: &str) -> Option<Language> {
     match lang {
         "rust" => Some(tree_sitter_rust::LANGUAGE.into()),
@@ -26,13 +25,11 @@ pub fn get_language_by_name(lang: &str) -> Option<Language> {
     }
 }
 
-#[cfg(feature = "tree-sitter-languages")]
 #[derive(RustEmbed)]
 #[folder = ""]
 #[include = "langs/*/*"]
 pub struct LangAssets;
 
-#[cfg(feature = "tree-sitter-languages")]
 pub fn get_highlights(lang: &str) -> anyhow::Result<String> {
     let p = format!("langs/{}/highlights.scm", lang);
     let highlights_bytes =

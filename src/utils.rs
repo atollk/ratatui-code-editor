@@ -1,14 +1,10 @@
 pub fn indent(lang_name: Option<&str>) -> &'static str {
     if let Some(lang) = lang_name {
         match lang {
-            "rust" | "python" | "php" | "toml" | "c" | "cpp" |
-            "zig" | "kotlin" | "erlang" | "html" | "sql" => {
-                "    "
-            }
-            "go" | "c_sharp" => {
-                "\t"
-            }
-            _ => "  "
+            "rust" | "python" | "php" | "toml" | "c" | "cpp" | "zig" | "kotlin" | "erlang"
+            | "html" | "sql" => "    ",
+            "go" | "c_sharp" => "\t",
+            _ => "  ",
         }
     } else {
         "  "
@@ -28,11 +24,13 @@ pub fn comment(lang_name: Option<&str>) -> &'static str {
 }
 
 pub fn count_indent_units(
-    line: ropey::RopeSlice<'_>, 
-    indent_unit: &str, 
-    max_col: Option<usize>
+    line: ropey::RopeSlice<'_>,
+    indent_unit: &str,
+    max_col: Option<usize>,
 ) -> usize {
-    if indent_unit.is_empty() { return 0; }
+    if indent_unit.is_empty() {
+        return 0;
+    }
 
     let mut chars = line.chars();
     let mut count = 0;
@@ -48,7 +46,9 @@ pub fn count_indent_units(
         }
         count += 1;
         if let Some(max) = max_col {
-            if col >= max { break; }
+            if col >= max {
+                break;
+            }
         }
     }
 
@@ -65,12 +65,10 @@ pub fn rgb(hex: &str) -> (u8, u8, u8) {
 
 /// Calculate end position by walking through the text
 /// Returns (end_row, end_col) starting from (start_row, start_col)
-pub fn calculate_end_position(
-    start_row: usize, start_col: usize, text: &str
-) -> (usize, usize) {
+pub fn calculate_end_position(start_row: usize, start_col: usize, text: &str) -> (usize, usize) {
     let mut end_row = start_row;
     let mut end_col = start_col;
-    
+
     for ch in text.chars() {
         if ch == '\n' {
             end_row += 1;
@@ -79,6 +77,6 @@ pub fn calculate_end_position(
             end_col += 1;
         }
     }
-    
+
     (end_row, end_col)
 }

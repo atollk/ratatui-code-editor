@@ -510,11 +510,17 @@ impl Code {
     }
 
     pub fn indentation_level(&self, line: usize, col: usize) -> usize {
+        if self.language.is_none() {
+            return 0;
+        }
         let line_str = self.line(line);
         count_indent_units(line_str, &self.indent(), Some(col))
     }
 
     pub fn is_only_indentation_before(&self, r: usize, c: usize) -> bool {
+        if self.language.is_none() {
+            return false;
+        }
         if r >= self.len_lines() || c == 0 {
             return false;
         }

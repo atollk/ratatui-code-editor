@@ -1,18 +1,18 @@
-use std::time::Duration;
+use crate::actions::*;
 use crate::click::{ClickKind, ClickTracker};
 use crate::code::Code;
-use crate::code::{EditKind, EditBatch};
-use crate::code::{RopeGraphemes, grapheme_width_and_chars_len, grapheme_width};
+use crate::code::{EditBatch, EditKind};
+use crate::code::{RopeGraphemes, grapheme_width, grapheme_width_and_chars_len};
 use crate::selection::{Selection, SelectionSnap};
-use crate::actions::*;
 use crate::utils;
-use std::collections::HashMap;
-use std::cell::RefCell;
-use std::cmp::Ordering;
 use anyhow::{Result, anyhow};
-use tree_sitter::Language;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
+use std::cell::RefCell;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::time::Duration;
+use tree_sitter::Language;
 
 // keyword and ratatui style
 type Theme = HashMap<String, Style>;
@@ -98,17 +98,17 @@ impl Editor {
 
         let line = self.code.char_to_line(self.cursor);
         let col = self.cursor - self.code.line_to_char(line);
-    
+
         let visible_width = width.saturating_sub(line_number_width);
         let visible_height = height;
-    
+
         let step_size = 10;
         if col < self.offset_x {
             self.offset_x = col.saturating_sub(step_size);
         } else if col >= self.offset_x + visible_width {
             self.offset_x = col.saturating_sub(visible_width - step_size);
         }
-    
+
         if line < self.offset_y {
             self.offset_y = line;
         } else if line >= self.offset_y + visible_height {
@@ -142,26 +142,26 @@ impl Editor {
             SelectionSnap::Line { anchor } => {
                 let (anchor_start, anchor_end) = self.code.line_boundaries(anchor);
                 let (cur_start, cur_end) = self.code.line_boundaries(cursor);
-        
+
                 let (sel_start, sel_end, new_cursor) = match cursor.cmp(&anchor) {
-                    Ordering::Greater => (anchor_start, cur_end, cur_end),   // forward
-                    Ordering::Less => (cur_start, anchor_end, cur_start),    // backward
-                    Ordering::Equal => (anchor_start, anchor_end, anchor_end), 
+                    Ordering::Greater => (anchor_start, cur_end, cur_end), // forward
+                    Ordering::Less => (cur_start, anchor_end, cur_start),  // backward
+                    Ordering::Equal => (anchor_start, anchor_end, anchor_end),
                 };
-        
+
                 self.selection = Some(Selection::from_anchor_and_cursor(sel_start, sel_end));
                 self.cursor = new_cursor;
             }
             SelectionSnap::Word { anchor } => {
                 let (anchor_start, anchor_end) = self.code.word_boundaries(anchor);
                 let (cur_start, cur_end) = self.code.word_boundaries(cursor);
-        
+
                 let (sel_start, sel_end, new_cursor) = match cursor.cmp(&anchor) {
-                    Ordering::Greater => (anchor_start, cur_end, cur_end),   // forward
-                    Ordering::Less => (cur_start, anchor_end, cur_start),    // backward
+                    Ordering::Greater => (anchor_start, cur_end, cur_end), // forward
+                    Ordering::Less => (cur_start, anchor_end, cur_start),  // backward
                     Ordering::Equal => (anchor_start, anchor_end, anchor_end),
                 };
-        
+
                 self.selection = Some(Selection::from_anchor_and_cursor(sel_start, sel_end));
                 self.cursor = new_cursor;
             }
@@ -174,50 +174,52 @@ impl Editor {
     }
 
     /// Converts mouse coordinates to a cursor position within the editor area, returning `None` if outside.
-    pub fn cursor_from_mouse(
-        &self, mouse_x: u16, mouse_y: u16, area: &Rect
-    ) -> Option<usize> {
+    pub fn cursor_from_mouse(&self, mouse_x: u16, mouse_y: u16, area: &Rect) -> Option<usize> {
         let total_lines = self.code.len_lines();
         let max_line_number = total_lines.max(1);
         let line_number_digits = max_line_number.to_string().len().max(5);
         let line_number_width = (line_number_digits + 2) as u16;
-    
+
         if mouse_y < area.top()
             || mouse_y >= area.bottom()
             || mouse_x < area.left() + line_number_width
         {
             return None;
         }
-    
+
         let clicked_row = (mouse_y - area.top()) as usize + self.offset_y;
         if clicked_row >= self.code.len_lines() {
             return None;
         }
-    
+
         let clicked_col = (mouse_x - area.left() - line_number_width) as usize;
-    
+
         let line_start_char = self.code.line_to_char(clicked_row);
         let line_len = self.code.line_len(clicked_row);
-    
+
         let start_col = self.offset_x.min(line_len);
         let end_col = line_len;
-    
+
         let char_start = line_start_char + start_col;
         let char_end = line_start_char + end_col;
-    
+
         let mut current_col = 0;
-        let mut char_idx = start_col;        
+        let mut char_idx = start_col;
         let visible_chars = self.code.char_slice(char_start, char_end);
         for g in RopeGraphemes::new(&visible_chars) {
-            let (g_width, g_chars) = grapheme_width_and_chars_len(g);        
-            if current_col + g_width > clicked_col { break; }
+            let (g_width, g_chars) = grapheme_width_and_chars_len(g);
+            if current_col + g_width > clicked_col {
+                break;
+            }
             current_col += g_width;
             char_idx += g_chars;
         }
-    
-        let line = self.code.char_slice(line_start_char, line_start_char + line_len);
+
+        let line = self
+            .code
+            .char_slice(line_start_char, line_start_char + line_len);
         let visual_width: usize = RopeGraphemes::new(&line).map(grapheme_width).sum();
-    
+
         if clicked_col + self.offset_x >= visual_width {
             let mut end_idx = line.len_chars();
             if end_idx > 0 && line.char(end_idx - 1) == '\n' {
@@ -225,7 +227,7 @@ impl Editor {
             }
             char_idx = end_idx;
         }
-    
+
         Some(line_start_char + char_idx)
     }
 
@@ -241,12 +243,18 @@ impl Editor {
         let anchor = self.selection_anchor();
         self.selection = Some(Selection::from_anchor_and_cursor(anchor, new_cursor));
     }
-    
+
     /// Returns the selection anchor position, or the cursor if no selection exists.
     pub fn selection_anchor(&self) -> usize {
         self.selection
             .as_ref()
-            .map(|s| if self.cursor == s.start { s.end } else { s.start })
+            .map(|s| {
+                if self.cursor == s.start {
+                    s.end
+                } else {
+                    s.start
+                }
+            })
             .unwrap_or(self.cursor)
     }
 
@@ -273,7 +281,7 @@ impl Editor {
         if let Some(state) = &batch.state_after {
             self.code.set_state_after(state.offset, state.selection);
         }
-        
+
         for edit in &batch.edits {
             match &edit.kind {
                 EditKind::Insert { offset, text } => {
@@ -294,7 +302,7 @@ impl Editor {
     }
 
     pub fn fit_cursor(&mut self) {
-        // make sure cursor is not out of bounds 
+        // make sure cursor is not out of bounds
         let len = self.code.len_chars();
         self.cursor = self.cursor.min(len);
 
@@ -319,7 +327,8 @@ impl Editor {
     }
 
     fn build_theme(theme: &Vec<(&str, &str)>) -> Theme {
-        theme.into_iter()
+        theme
+            .into_iter()
             .map(|(name, hex)| {
                 let (r, g, b) = utils::rgb(hex);
                 (name.to_string(), Style::default().fg(Color::Rgb(r, g, b)))
@@ -356,12 +365,13 @@ impl Editor {
 
     pub fn set_marks(&mut self, marks: Vec<(usize, usize, &str)>) {
         self.marks = Some(
-            marks.into_iter()
+            marks
+                .into_iter()
                 .map(|(start, end, color)| {
                     let (r, g, b) = utils::rgb(color);
                     (start, end, Color::Rgb(r, g, b))
                 })
-                .collect()
+                .collect(),
         );
     }
 
@@ -378,7 +388,9 @@ impl Editor {
     }
 
     pub fn get_selection_text(&mut self) -> Option<String> {
-        if let Some(selection) = &self.selection && !selection.is_empty() {
+        if let Some(selection) = &self.selection
+            && !selection.is_empty()
+        {
             let text = self.code.slice(selection.start, selection.end);
             return Some(text);
         }
@@ -386,7 +398,7 @@ impl Editor {
     }
 
     pub fn get_selection(&mut self) -> Option<Selection> {
-       return self.selection;
+        return self.selection;
     }
 
     pub fn set_selection(&mut self, selection: Option<Selection>) {
@@ -400,7 +412,7 @@ impl Editor {
     pub fn set_offset_x(&mut self, offset_x: usize) {
         self.offset_x = offset_x;
     }
-    
+
     pub fn get_offset_y(&self) -> usize {
         self.offset_y
     }
@@ -419,13 +431,17 @@ impl Editor {
 
     /// Set the change callback function for handling document changes
     pub fn set_change_callback(
-        &mut self, callback: Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>
+        &mut self,
+        callback: Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>,
     ) {
         self.code.set_change_callback(callback);
     }
 
     pub fn highlight_interval(
-        &self, start: usize, end: usize, theme: &Theme
+        &self,
+        start: usize,
+        end: usize,
+        theme: &Theme,
     ) -> Vec<(usize, usize, Style)> {
         let mut cache = self.highlights_cache.borrow_mut();
         let key = (start, end);
@@ -441,46 +457,49 @@ impl Editor {
     pub fn reset_highlight_cache(&self) {
         self.highlights_cache.borrow_mut().clear();
     }
-    
-    /// calculates visible cursor position 
-    pub fn get_visible_cursor(
-        &self, area: &Rect
-    ) -> Option<(u16, u16)> {
+
+    /// calculates visible cursor position
+    pub fn get_visible_cursor(&self, area: &Rect) -> Option<(u16, u16)> {
         let total_lines = self.code.len_lines();
         let max_line_number = total_lines.max(1);
         let line_number_digits = max_line_number.to_string().len().max(5);
         let line_number_width = line_number_digits + 2;
 
         let (cursor_line, cursor_char_col) = self.code.point(self.cursor);
-        
+
         if cursor_line >= self.offset_y && cursor_line < self.offset_y + area.height as usize {
             let line_start_char = self.code.line_to_char(cursor_line);
             let line_len = self.code.line_len(cursor_line);
-        
+
             let max_x = (area.width as usize).saturating_sub(line_number_width);
             let start_col = self.offset_x;
-                
+
             let cursor_visual_col: usize = {
-                let slice = self.code.char_slice(line_start_char, line_start_char + cursor_char_col.min(line_len));
+                let slice = self.code.char_slice(
+                    line_start_char,
+                    line_start_char + cursor_char_col.min(line_len),
+                );
                 RopeGraphemes::new(&slice).map(grapheme_width).sum()
             };
-            
+
             let offset_visual_col: usize = {
-                let slice = self.code.char_slice(line_start_char, line_start_char + start_col.min(line_len));
+                let slice = self
+                    .code
+                    .char_slice(line_start_char, line_start_char + start_col.min(line_len));
                 RopeGraphemes::new(&slice).map(grapheme_width).sum()
             };
-        
+
             let relative_visual_col = cursor_visual_col.saturating_sub(offset_visual_col);
             let visible_x = relative_visual_col.min(max_x);
-        
+
             let cursor_x = area.left() + (line_number_width + visible_x) as u16;
             let cursor_y = area.top() + (cursor_line - self.offset_y) as u16;
-        
+
             if cursor_x < area.right() && cursor_y < area.bottom() {
                 return Some((cursor_x, cursor_y));
             }
         }
-        
+
         return None;
     }
 }
