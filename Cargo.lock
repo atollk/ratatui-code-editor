@@ -1124,7 +1124,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "crossterm",
- "ratatui",
+ "ratatui-core",
  "ropey",
  "rust-embed",
  "streaming-iterator",

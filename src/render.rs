@@ -1,4 +1,7 @@
-use ratatui::{prelude::*, widgets::Widget};
+use ratatui_core::{widgets::Widget};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::{Color, Style};
 use crate::editor::Editor;
 use crate::code::{
     RopeGraphemes, grapheme_width_and_chars_len, grapheme_width_and_bytes_len

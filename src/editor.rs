@@ -1,6 +1,3 @@
-use ratatui::style::Color;
-use ratatui::style::Style;
-use ratatui::prelude::*;
 use std::time::Duration;
 use crate::click::{ClickKind, ClickTracker};
 use crate::code::Code;
@@ -13,6 +10,8 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use anyhow::{Result, anyhow};
+use ratatui_core::layout::Rect;
+use ratatui_core::style::{Color, Style};
 
 // keyword and ratatui style
 type Theme = HashMap<String, Style>;
