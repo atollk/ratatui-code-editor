@@ -39,8 +39,8 @@ tree-sitter-rust = "^0.24"
 
 [dependencies]
 anyhow = "^1.0"
+ratatui-core = "~0.1.0"
 crossterm = { version = "~0.29", optional = true }
-ratatui = "~0.30"
 ropey = "^1.6"
 rust-embed = { version = "^8.7", features = ["include-exclude"] }
 streaming-iterator = "~0.1"

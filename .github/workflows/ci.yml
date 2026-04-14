@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,3 +15,6 @@ jobs:
 
       - name: Build library and examples
         run: cargo build --workspace
+
+      - name: Run tests
+        run: cargo test --workspace

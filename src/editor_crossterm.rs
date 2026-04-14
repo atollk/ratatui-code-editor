@@ -6,7 +6,7 @@ use crossterm::event::{
     KeyEvent, KeyModifiers,
     MouseButton, MouseEvent, MouseEventKind,
 };
-use ratatui::prelude::*;
+use ratatui_core::layout::Rect;
 
 impl Editor {
     pub fn input(
