@@ -14,26 +14,26 @@ impl Editor {
         let _alt = key.modifiers.contains(KeyModifiers::ALT);
 
         match key.code {
-            KeyCode::Char('÷') => self.apply(ToggleComment {}),
-            KeyCode::Char('z') if ctrl => self.apply(Undo {}),
-            KeyCode::Char('y') if ctrl => self.apply(Redo {}),
-            KeyCode::Char('c') if ctrl => self.apply(Copy {}),
-            KeyCode::Char('v') if ctrl => self.apply(Paste {}),
-            KeyCode::Char('x') if ctrl => self.apply(Cut {}),
-            KeyCode::Char('k') if ctrl => self.apply(DeleteLine {}),
-            KeyCode::Char('d') if ctrl => self.apply(Duplicate {}),
-            KeyCode::Char('a') if ctrl => self.apply(SelectAll {}),
-            KeyCode::Left => self.apply(MoveLeft { shift }),
-            KeyCode::Right => self.apply(MoveRight { shift }),
-            KeyCode::Up => self.apply(MoveUp { shift }),
-            KeyCode::Down => self.apply(MoveDown { shift }),
-            KeyCode::Backspace => self.apply(Delete {}),
-            KeyCode::Enter => self.apply(InsertNewline {}),
-            KeyCode::Char(c) => self.apply(InsertText {
+            KeyCode::Char('÷') => self.apply(DefaultAction::ToggleComment),
+            KeyCode::Char('z') if ctrl => self.apply(DefaultAction::Undo),
+            KeyCode::Char('y') if ctrl => self.apply(DefaultAction::Redo),
+            KeyCode::Char('c') if ctrl => self.apply(DefaultAction::Copy),
+            KeyCode::Char('v') if ctrl => self.apply(DefaultAction::Paste),
+            KeyCode::Char('x') if ctrl => self.apply(DefaultAction::Cut),
+            KeyCode::Char('k') if ctrl => self.apply(DefaultAction::DeleteLine),
+            KeyCode::Char('d') if ctrl => self.apply(DefaultAction::Duplicate),
+            KeyCode::Char('a') if ctrl => self.apply(DefaultAction::SelectAll),
+            KeyCode::Left => self.apply(DefaultAction::MoveLeft { shift }),
+            KeyCode::Right => self.apply(DefaultAction::MoveRight { shift }),
+            KeyCode::Up => self.apply(DefaultAction::MoveUp { shift }),
+            KeyCode::Down => self.apply(DefaultAction::MoveDown { shift }),
+            KeyCode::Backspace => self.apply(DefaultAction::Delete),
+            KeyCode::Enter => self.apply(DefaultAction::InsertNewline),
+            KeyCode::Char(c) => self.apply(DefaultAction::InsertText {
                 text: c.to_string(),
             }),
-            KeyCode::Tab => self.apply(Indent {}),
-            KeyCode::BackTab => self.apply(UnIndent {}),
+            KeyCode::Tab => self.apply(DefaultAction::Indent),
+            KeyCode::BackTab => self.apply(DefaultAction::UnIndent),
             _ => {}
         }
         self.focus(&area);
