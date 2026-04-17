@@ -2,10 +2,10 @@ use crate::actions::*;
 use crate::editor::Editor;
 use crate::selection::SelectionSnap;
 use anyhow::Result;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui_core::layout::Rect;
 
-fn key_to_action(key: KeyEvent) -> Option<DefaultAction> {
+fn key_to_action(key: &KeyEvent) -> Option<DefaultAction> {
     let shift = key.modifiers.contains(KeyModifiers::SHIFT);
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     let _alt = key.modifiers.contains(KeyModifiers::ALT);
@@ -36,7 +36,7 @@ fn key_to_action(key: KeyEvent) -> Option<DefaultAction> {
 }
 
 impl Editor {
-    pub fn input(&mut self, key: KeyEvent, area: &Rect) -> Result<()> {
+    pub fn input(&mut self, key: &KeyEvent, area: &Rect) -> Result<()> {
         if let Some(action) = key_to_action(key) {
             self.apply(action);
         }

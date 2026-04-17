@@ -73,8 +73,8 @@ fn main() -> anyhow::Result<()> {
                         active_editor = (active_editor + 1) % 2;
                     } else {
                         match active_editor {
-                            0 => editor1.input(key, &editor1_area)?,
-                            1 => editor2.input(key, &editor2_area)?,
+                            0 => editor1.input(&key, &editor1_area)?,
+                            1 => editor2.input(&key, &editor2_area)?,
                             _ => {}
                         }
                     }

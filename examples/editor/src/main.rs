@@ -58,7 +58,7 @@ fn main() -> anyhow::Result<()> {
                         let content = editor.get_content();
                         save_to_file(&content, filename)?;
                     } else {
-                        editor.input(key, &editor_area)?;
+                        editor.input(&key, &editor_area)?;
                     }
                 }
                 Event::Mouse(mouse) => {

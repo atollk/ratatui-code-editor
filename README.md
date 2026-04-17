@@ -104,7 +104,7 @@ fn main() -> anyhow::Result<()> {
             if key.code == KeyCode::Esc {
                 break;
             }
-            editor.input(key, &editor_area)?;
+            editor.input(&key, &editor_area)?;
         }
     }
     

@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
                     if key.code == KeyCode::Esc {
                         break;
                     } else {
-                        editor.input(key, &editor_area)?;
+                        editor.input(&key, &editor_area)?;
                     }
                 }
                 Event::Mouse(mouse) => {
