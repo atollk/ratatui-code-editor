@@ -1,28 +1,3 @@
-pub fn indent(lang_name: Option<&str>) -> &'static str {
-    if let Some(lang) = lang_name {
-        match lang {
-            "rust" | "python" | "php" | "toml" | "c" | "cpp" | "zig" | "kotlin" | "erlang"
-            | "html" | "sql" => "    ",
-            "go" | "c_sharp" => "\t",
-            _ => "  ",
-        }
-    } else {
-        "  "
-    }
-}
-
-pub fn comment(lang_name: Option<&str>) -> &'static str {
-    if let Some(lang) = lang_name {
-        match lang {
-            "python" | "shell" => "#",
-            "lua" => "--",
-            _ => "//",
-        }
-    } else {
-        "//"
-    }
-}
-
 pub fn count_indent_units(
     line: ropey::RopeSlice<'_>,
     indent_unit: &str,

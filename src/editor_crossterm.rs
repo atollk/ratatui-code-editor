@@ -35,7 +35,7 @@ fn key_to_action(key: &KeyEvent) -> Option<DefaultAction> {
     }
 }
 
-impl Editor {
+impl<'a> Editor<'a> {
     pub fn input(&mut self, key: &KeyEvent, area: &Rect) -> Result<()> {
         if let Some(action) = key_to_action(key) {
             self.apply(action);

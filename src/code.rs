@@ -1,14 +1,9 @@
 use crate::history::History;
 use crate::selection::Selection;
-use crate::utils::{calculate_end_position, comment as lang_comment, count_indent_units, indent};
-use anyhow::Result;
+use crate::utils::{calculate_end_position, count_indent_units};
+use ratatui_core::style::Style;
 use ropey::{Rope, RopeSlice};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-use streaming_iterator::StreamingIterator;
-use tree_sitter::{InputEdit, Point, QueryCursor};
-use tree_sitter::{Language, Node, Parser, Query, Tree};
+use std::ops::Range;
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
@@ -46,82 +41,37 @@ pub struct EditState {
     pub selection: Option<Selection>,
 }
 
-pub struct Code {
-    content: ropey::Rope,
-    language: Option<Language>,
-    tree: Option<Tree>,
-    parser: Option<Parser>,
-    query: Option<Query>,
+pub(crate) trait CodeLanguage<'a> {
+    fn get_indent(&self) -> &'a str;
+    fn get_comment_prefix(&self) -> &'a str;
+    fn highlight(&self, text: &'a str) -> Vec<(Range<usize>, Style)>;
+}
+
+pub use crate::code_logos::PLAIN_TEXT;
+
+pub struct Code<'a> {
+    content: Rope,
+    language: &'a dyn CodeLanguage<'a>,
     applying_history: bool,
     history: History,
     current_batch: EditBatch,
-    injection_parsers: Option<HashMap<String, Rc<RefCell<Parser>>>>,
-    injection_queries: Option<HashMap<String, Query>>,
     change_callback: Option<Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>>,
-    highlights: Option<String>,
 }
 
-impl Code {
-    /// Create a new `Code` instance with the given text and language.
-    pub fn new(text: &str, language: Option<Language>, highlights: Option<String>) -> Result<Self> {
-        let mut code = Self {
+impl<'a> Code<'a> {
+    pub fn new(text: &str, language: &'a dyn CodeLanguage<'a>) -> Self {
+        Self {
             content: Rope::from_str(text),
-            language: language,
-            tree: None,
-            parser: None,
-            query: None,
+            language,
             applying_history: true,
             history: History::new(1000),
             current_batch: EditBatch::new(),
-            injection_parsers: None,
-            injection_queries: None,
             change_callback: None,
-            highlights,
-        };
-
-        if let Some(lang) = &code.language {
-            let mut parser = Parser::new();
-            parser.set_language(lang)?;
-            let tree = parser.parse(text, None);
-            code.tree = tree;
-            code.parser = Some(parser);
-
-            if let Some(highlights) = &code.highlights {
-                let query = Query::new(lang, &highlights)?;
-                let (iparsers, iqueries) = code.init_injections(&query, lang)?;
-                code.query = Some(query);
-                code.injection_parsers = Some(iparsers);
-                code.injection_queries = Some(iqueries);
-            }
         }
-
-        Ok(code)
     }
 
-    fn init_injections(
-        &self,
-        query: &Query,
-        language: &Language,
-    ) -> anyhow::Result<(HashMap<String, Rc<RefCell<Parser>>>, HashMap<String, Query>)> {
-        let mut injection_parsers = HashMap::new();
-        let mut injection_queries = HashMap::new();
-
-        for name in query.capture_names() {
-            if let Some(lang) = name.strip_prefix("injection.content.") {
-                if injection_parsers.contains_key(lang) {
-                    continue;
-                }
-                let mut parser = Parser::new();
-                parser.set_language(&language)?;
-                if let Some(highlights) = &self.highlights {
-                    let inj_query = Query::new(&language, &highlights)?;
-                    injection_parsers.insert(lang.to_string(), Rc::new(RefCell::new(parser)));
-                    injection_queries.insert(lang.to_string(), inj_query);
-                }
-            }
-        }
-
-        Ok((injection_parsers, injection_queries))
+    fn on_change(&mut self) {
+        todo!()
     }
 
     pub fn point(&self, offset: usize) -> (usize, usize) {
@@ -218,9 +168,6 @@ impl Code {
     }
 
     pub fn insert(&mut self, from: usize, text: &str) {
-        let byte_idx = self.content.char_to_byte(from);
-        let byte_len: usize = text.chars().map(|ch| ch.len_utf8()).sum();
-
         self.content.insert(from, text);
 
         if self.applying_history {
@@ -232,21 +179,10 @@ impl Code {
             });
         }
 
-        if self.tree.is_some() {
-            self.edit_tree(InputEdit {
-                start_byte: byte_idx,
-                old_end_byte: byte_idx,
-                new_end_byte: byte_idx + byte_len,
-                start_position: Point { row: 0, column: 0 },
-                old_end_position: Point { row: 0, column: 0 },
-                new_end_position: Point { row: 0, column: 0 },
-            });
-        }
+        self.on_change();
     }
 
     pub fn remove(&mut self, from: usize, to: usize) {
-        let from_byte = self.content.char_to_byte(from);
-        let to_byte = self.content.char_to_byte(to);
         let removed_text = self.content.slice(from..to).to_string();
 
         self.content.remove(from..to);
@@ -260,165 +196,37 @@ impl Code {
             });
         }
 
-        if self.tree.is_some() {
-            self.edit_tree(InputEdit {
-                start_byte: from_byte,
-                old_end_byte: to_byte,
-                new_end_byte: from_byte,
-                start_position: Point { row: 0, column: 0 },
-                old_end_position: Point { row: 0, column: 0 },
-                new_end_position: Point { row: 0, column: 0 },
-            });
-        }
-    }
-
-    fn edit_tree(&mut self, edit: InputEdit) {
-        if let Some(tree) = self.tree.as_mut() {
-            tree.edit(&edit);
-            self.reparse();
-        }
-    }
-
-    fn reparse(&mut self) {
-        if let Some(parser) = self.parser.as_mut() {
-            let rope = &self.content;
-            self.tree = parser.parse_with_options(
-                &mut |byte, _| {
-                    if byte <= rope.len_bytes() {
-                        let (chunk, start, _, _) = rope.chunk_at_byte(byte);
-                        &chunk.as_bytes()[byte - start..]
-                    } else {
-                        &[]
-                    }
-                },
-                self.tree.as_ref(),
-                None,
-            );
-        }
+        self.on_change();
     }
 
     pub fn is_highlight(&self) -> bool {
-        self.query.is_some()
+        true
     }
 
     /// Highlights the interval between `start` and `end` char indices.
     /// Returns a list of (start byte, end byte, token_name) for highlighting.
-    pub fn highlight_interval<T: Copy>(
-        &self,
-        start: usize,
-        end: usize,
-        theme: &HashMap<String, T>,
-    ) -> Vec<(usize, usize, T)> {
+    pub fn highlight_interval(&self, start: usize, end: usize) -> Vec<(usize, usize, Style)> {
         if start > end {
             panic!("Invalid range")
         }
 
-        let Some(query) = &self.query else {
-            return vec![];
-        };
-        let Some(tree) = &self.tree else {
-            return vec![];
-        };
-
-        let text = self.content.slice(..);
-        let root_node = tree.root_node();
-
-        let mut results = Self::highlight(
-            text,
-            start,
-            end,
-            query,
-            root_node,
-            theme,
-            self.injection_parsers.as_ref(),
-            self.injection_queries.as_ref(),
-        );
+        // TODO: allow slice instead of String
+        let text = self.content.to_string();
+        let mut results = self.language.highlight(&text[start..=end]);
 
         results.sort_by(|a, b| {
-            let len_a = a.1 - a.0;
-            let len_b = b.1 - b.0;
+            let len_a = a.0.end - a.0.start + 1;
+            let len_b = b.0.end - b.0.start + 1;
             match len_b.cmp(&len_a) {
-                std::cmp::Ordering::Equal => b.2.cmp(&a.2),
+                std::cmp::Ordering::Equal => b.1.cmp(&a.1),
                 other => other,
             }
         });
 
         results
             .into_iter()
-            .map(|(start, end, _, value)| (start, end, value))
+            .map(|(range, value)| (range.start, range.end - 1, value))
             .collect()
-    }
-
-    fn highlight<T: Copy>(
-        text: RopeSlice<'_>,
-        start_byte: usize,
-        end_byte: usize,
-        query: &Query,
-        root_node: Node,
-        theme: &HashMap<String, T>,
-        injection_parsers: Option<&HashMap<String, Rc<RefCell<Parser>>>>,
-        injection_queries: Option<&HashMap<String, Query>>,
-    ) -> Vec<(usize, usize, usize, T)> {
-        let mut cursor = QueryCursor::new();
-        cursor.set_byte_range(start_byte..end_byte);
-
-        let mut matches = cursor.matches(query, root_node, RopeProvider(text));
-
-        let mut results = Vec::new();
-        let capture_names = query.capture_names();
-
-        while let Some(m) = matches.next() {
-            for capture in m.captures {
-                let name = capture_names[capture.index as usize];
-                if let Some(value) = theme.get(name) {
-                    results.push((
-                        capture.node.start_byte(),
-                        capture.node.end_byte(),
-                        capture.index as usize,
-                        *value,
-                    ));
-                } else if let Some(lang) = name.strip_prefix("injection.content.") {
-                    let Some(injection_parsers) = injection_parsers else {
-                        continue;
-                    };
-                    let Some(injection_queries) = injection_queries else {
-                        continue;
-                    };
-                    let Some(parser) = injection_parsers.get(lang) else {
-                        continue;
-                    };
-                    let Some(injection_query) = injection_queries.get(lang) else {
-                        continue;
-                    };
-
-                    let start = capture.node.start_byte();
-                    let end = capture.node.end_byte();
-                    let slice = text.byte_slice(start..end);
-
-                    let mut parser = parser.borrow_mut();
-                    let Some(inj_tree) = parser.parse(slice.to_string(), None) else {
-                        continue;
-                    };
-
-                    let injection_results = Self::highlight(
-                        slice,
-                        0,
-                        end - start,
-                        injection_query,
-                        inj_tree.root_node(),
-                        theme,
-                        injection_parsers.into(),
-                        injection_queries.into(),
-                    );
-
-                    for (s, e, i, v) in injection_results {
-                        results.push((s + start, e + start, i, v));
-                    }
-                }
-            }
-        }
-
-        results
     }
 
     pub fn undo(&mut self) -> Option<EditBatch> {
@@ -501,16 +309,16 @@ impl Code {
         (start, end)
     }
 
-    pub fn indent(&self) -> String {
-        indent(self.language.as_ref().map(Language::name).flatten()).to_string()
+    pub fn indent(&self) -> &'a str {
+        self.language.get_indent()
     }
 
-    pub fn comment(&self) -> String {
-        lang_comment(self.language.as_ref().map(|l| l.name()).flatten()).to_string()
+    pub fn comment(&self) -> &'a str {
+        self.language.get_comment_prefix()
     }
 
     pub fn indentation_level(&self, line: usize, col: usize) -> usize {
-        if self.language.is_none() {
+        if self.indent().is_empty() {
             return 0;
         }
         let line_str = self.line(line);
@@ -518,9 +326,6 @@ impl Code {
     }
 
     pub fn is_only_indentation_before(&self, r: usize, c: usize) -> bool {
-        if self.language.is_none() {
-            return false;
-        }
         if r >= self.len_lines() || c == 0 {
             return false;
         }
@@ -677,26 +482,6 @@ impl<'a> Iterator for ChunksBytes<'a> {
     }
 }
 
-/// A lightweight wrapper around a `RopeSlice`
-/// that implements `tree_sitter::TextProvider`.
-/// This allows using `tree-sitter`'s `QueryCursor::matches`
-/// directly on a `Rope` without converting it to a `String`.
-pub struct RopeProvider<'a>(pub RopeSlice<'a>);
-
-impl<'a> tree_sitter::TextProvider<&'a [u8]> for RopeProvider<'a> {
-    type I = ChunksBytes<'a>;
-
-    /// Provides an iterator over chunks of text corresponding to the given node.
-    /// This avoids allocation by working directly with Rope slices.
-    #[inline]
-    fn text(&mut self, node: tree_sitter::Node) -> Self::I {
-        let fragment = self.0.byte_slice(node.start_byte()..node.end_byte());
-        ChunksBytes {
-            chunks: fragment.chunks(),
-        }
-    }
-}
-
 /// An implementation of a graphemes iterator, for iterating over the graphemes of a RopeSlice.
 pub struct RopeGraphemes<'a> {
     text: ropey::RopeSlice<'a>,
@@ -798,7 +583,8 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let mut code = Code::new("", None, None).unwrap();
+        let x: &dyn CodeLanguage = PLAIN_TEXT;
+        let mut code = Code::new("", PLAIN_TEXT);
         code.insert(0, "Hello ");
         code.insert(6, "World");
         assert_eq!(code.content.to_string(), "Hello World");
@@ -806,14 +592,14 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut code = Code::new("Hello World", None, None).unwrap();
+        let mut code = Code::new("Hello World", PLAIN_TEXT.clone());
         code.remove(5, 11);
         assert_eq!(code.content.to_string(), "Hello");
     }
 
     #[test]
     fn test_undo() {
-        let mut code = Code::new("", None, None).unwrap();
+        let mut code = Code::new("", PLAIN_TEXT.clone());
 
         code.tx();
         code.insert(0, "Hello ");
@@ -832,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_redo() {
-        let mut code = Code::new("", None, None).unwrap();
+        let mut code = Code::new("", PLAIN_TEXT.clone());
 
         code.tx();
         code.insert(0, "Hello");
@@ -847,31 +633,30 @@ mod tests {
 
     #[test]
     fn test_indentation_level0() {
-        let mut code = Code::new("", None, None).unwrap();
+        let mut code = Code::new("", PLAIN_TEXT.clone());
         code.insert(0, "    hello world");
         assert_eq!(code.indentation_level(0, 10), 0);
     }
 
+    static INDENT_LANG: CodeLanguage<PlainTextToken> = CodeLanguage::new("    ", "#");
+
     #[test]
     fn test_indentation_level() {
-        let mut code =
-            Code::new("", Some(Language::from(tree_sitter_python::LANGUAGE)), None).unwrap();
+        let mut code = Code::new("", INDENT_LANG.clone());
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 1);
     }
 
     #[test]
     fn test_indentation_level2() {
-        let mut code =
-            Code::new("", Some(Language::from(tree_sitter_python::LANGUAGE)), None).unwrap();
+        let mut code = Code::new("", INDENT_LANG.clone());
         code.insert(0, "        print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 2);
     }
 
     #[test]
     fn test_is_only_indentation_before() {
-        let mut code =
-            Code::new("", Some(Language::from(tree_sitter_python::LANGUAGE)), None).unwrap();
+        let mut code = Code::new("", INDENT_LANG.clone());
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.is_only_indentation_before(0, 4), true);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -879,7 +664,7 @@ mod tests {
 
     #[test]
     fn test_is_only_indentation_before2() {
-        let mut code = Code::new("", None, None).unwrap();
+        let mut code = Code::new("", PLAIN_TEXT.clone());
         code.insert(0, "    Hello, World");
         assert_eq!(code.is_only_indentation_before(0, 4), false);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -888,12 +673,7 @@ mod tests {
     #[test]
     fn test_smart_paste_1() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(
-            initial,
-            Some(Language::from(tree_sitter_rust::LANGUAGE)),
-            None,
-        )
-        .unwrap();
+        let mut code = Code::new(initial, INDENT_LANG.clone());
 
         let offset = 30;
         let paste = "if start == end && start == self.code.len() {\n    return;\n}";
@@ -906,12 +686,7 @@ mod tests {
     #[test]
     fn test_smart_paste_2() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(
-            initial,
-            Some(Language::from(tree_sitter_rust::LANGUAGE)),
-            None,
-        )
-        .unwrap();
+        let mut code = Code::new(initial, INDENT_LANG.clone());
 
         let offset = 30;
         let paste = "    if start == end && start == self.code.len() {\n        return;\n    }";

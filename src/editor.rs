@@ -1,6 +1,6 @@
 use crate::actions::*;
 use crate::click::{ClickKind, ClickTracker};
-use crate::code::Code;
+use crate::code::{Code, CodeLanguage};
 use crate::code::{EditBatch, EditKind};
 use crate::code::{RopeGraphemes, grapheme_width, grapheme_width_and_chars_len};
 use crate::selection::{Selection, SelectionSnap};
@@ -12,10 +12,7 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time::Duration;
-use tree_sitter::Language;
 
-// keyword and ratatui style
-type Theme = HashMap<String, Style>;
 // start byte, end byte, style
 type Hightlight = (usize, usize, Style);
 // start offset, end offset
@@ -23,9 +20,9 @@ type HightlightCache = HashMap<(usize, usize), Vec<Hightlight>>;
 
 /// Represents the text editor, which holds the code buffer, cursor, selection,
 /// theme, scroll offsets, highlight cache, clipboard, and user mark intervals.
-pub struct Editor {
+pub struct Editor<'a> {
     /// Code buffer and editing/highlighting logic for the current language
-    pub(crate) code: Code,
+    pub(crate) code: Code<'a>,
     /// Current cursor position as a character index in the document
     pub(crate) cursor: usize,
 
@@ -34,9 +31,6 @@ pub struct Editor {
 
     /// Horizontal scroll offset in characters (visual columns)
     pub(crate) offset_x: usize,
-
-    /// Syntax theme: mapping of token name to ratatui Style
-    pub(crate) theme: Theme,
 
     /// Current text selection, if any
     pub(crate) selection: Option<Selection>,
@@ -57,34 +51,22 @@ pub struct Editor {
     pub(crate) highlights_cache: RefCell<HightlightCache>,
 }
 
-impl Editor {
-    pub fn new(lang: Option<Language>, text: &str, theme: Vec<(&str, &str)>) -> Result<Self> {
-        Self::new_with_highlights(lang, text, theme, None)
-    }
-
-    pub fn new_with_highlights(
-        lang: Option<Language>,
+impl<'a> Editor<'a> {
+    pub fn new(
+        language: &'a dyn CodeLanguage<'a>,
         text: &str,
-        theme: Vec<(&str, &str)>,
-        highlights: Option<String>,
     ) -> Result<Self> {
-        let code = Code::new(text, lang, highlights)?;
-
-        let theme = Self::build_theme(&theme);
-        let highlights_cache = RefCell::new(HashMap::new());
-
         Ok(Self {
-            code,
+            code: Code::new(text, language),
             cursor: 0,
             offset_y: 0,
             offset_x: 0,
-            theme,
             selection: None,
             clicks: ClickTracker::new(Duration::from_millis(700)),
             selection_snap: SelectionSnap::None,
             clipboard: String::new(),
             marks: None,
-            highlights_cache,
+            highlights_cache: RefCell::new(HashMap::new()),
         })
     }
 
@@ -326,15 +308,6 @@ impl Editor {
         }
     }
 
-    fn build_theme(theme: &Vec<(&str, &str)>) -> Theme {
-        theme
-            .into_iter()
-            .map(|(name, hex)| {
-                let (r, g, b) = utils::rgb(hex);
-                (name.to_string(), Style::default().fg(Color::Rgb(r, g, b)))
-            })
-            .collect()
-    }
 
     pub fn get_content(&self) -> String {
         self.code.get_content()
@@ -426,11 +399,11 @@ impl Editor {
         self.offset_x
     }
 
-    pub fn code_mut(&mut self) -> &mut Code {
+    pub fn code_mut(&mut self) -> &'a mut Code {
         &mut self.code
     }
 
-    pub fn code_ref(&self) -> &Code {
+    pub fn code_ref(&self) -> &'a Code {
         &self.code
     }
 
@@ -446,7 +419,6 @@ impl Editor {
         &self,
         start: usize,
         end: usize,
-        theme: &Theme,
     ) -> Vec<(usize, usize, Style)> {
         let mut cache = self.highlights_cache.borrow_mut();
         let key = (start, end);
@@ -454,7 +426,7 @@ impl Editor {
             return v.clone();
         }
 
-        let highlights = self.code.highlight_interval(start, end, theme);
+        let highlights = self.code.highlight_interval(start, end);
         cache.insert(key, highlights.clone());
         highlights
     }

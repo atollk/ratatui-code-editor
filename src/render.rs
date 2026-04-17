@@ -19,7 +19,7 @@ use ratatui_core::widgets::Widget;
 /// * `area` - The rectangular area on the terminal to draw within.
 /// * `buf` - The ratatui `Buffer` that represents the screen cells to draw to.
 ///
-impl Widget for &Editor {
+impl<'a> Widget for &Editor<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let code = self.code_ref();
         let total_lines = code.len_lines();
@@ -96,7 +96,7 @@ impl Widget for &Editor {
                 let start_byte = code.char_to_byte(start_char);
                 let end_byte = code.char_to_byte(end_char);
 
-                let highlights = self.highlight_interval(start_byte, end_byte, &self.theme);
+                let highlights = self.highlight_interval(start_byte, end_byte);
 
                 let mut x = 0;
                 let mut byte_idx_in_rope = start_byte;

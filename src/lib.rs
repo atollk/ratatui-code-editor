@@ -11,3 +11,4 @@ pub mod theme;
 #[cfg(feature = "tree-sitter-languages")]
 pub mod tree_sitter_languages;
 pub mod utils;
+pub mod code_logos;
