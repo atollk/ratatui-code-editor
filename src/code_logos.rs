@@ -14,7 +14,7 @@ pub struct LogosCodeLanguage<'a, Token: logos::Logos<'a>> {
 }
 
 impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> LogosCodeLanguage<'a, Token> {
-    const fn new(indent: &'a str, comment_prefix: &'a str, theme: HashMap<Token, Style>) -> Self {
+    pub fn new(indent: &'a str, comment_prefix: &'a str, theme: HashMap<Token, Style>) -> Self {
         LogosCodeLanguage {
             indent,
             comment_prefix,
@@ -24,7 +24,7 @@ impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> LogosCodeLangua
     }
 }
 
-impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> crate::code::CodeLanguage<'a>
+impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> crate::code::CodeLanguage
     for LogosCodeLanguage<'a, Token>
 {
     fn get_indent(&self) -> &'a str {
@@ -35,7 +35,7 @@ impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> crate::code::Co
         self.comment_prefix
     }
 
-    fn highlight(&self, text: &'a str) -> Vec<(Range<usize>, Style)> {
+    fn highlight(&self, text: &str) -> Vec<(Range<usize>, Style)> {
         let tokens: Vec<_> = Token::lexer(text)
             .spanned()
             .filter_map(|(token, span)| token.map(|token| (token, span)).ok())
@@ -59,7 +59,7 @@ pub static PLAIN_TEXT: LazyLock<LogosCodeLanguage<PlainTextToken>> =
     });
 
 #[derive(Logos, Clone, Debug)]
-enum PlainTextToken {
+pub(crate) enum PlainTextToken {
     #[regex(".+", allow_greedy = true)]
     Any,
 }

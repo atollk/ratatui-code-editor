@@ -8,7 +8,7 @@ pub mod history;
 pub mod render;
 pub mod selection;
 pub mod theme;
-#[cfg(feature = "tree-sitter-languages")]
-pub mod tree_sitter_languages;
 pub mod utils;
 pub mod code_logos;
+
+pub mod python_logos;

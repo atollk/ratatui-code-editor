@@ -53,7 +53,7 @@ pub struct Editor<'a> {
 
 impl<'a> Editor<'a> {
     pub fn new(
-        language: &'a dyn CodeLanguage<'a>,
+        language: &'a dyn CodeLanguage,
         text: &str,
     ) -> Result<Self> {
         Ok(Self {
@@ -399,11 +399,11 @@ impl<'a> Editor<'a> {
         self.offset_x
     }
 
-    pub fn code_mut(&mut self) -> &'a mut Code {
+    pub fn code_mut(&mut self) -> &mut Code<'a> {
         &mut self.code
     }
 
-    pub fn code_ref(&self) -> &'a Code {
+    pub fn code_ref(&self) -> &Code<'a> {
         &self.code
     }
 

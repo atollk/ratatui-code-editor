@@ -41,17 +41,17 @@ pub struct EditState {
     pub selection: Option<Selection>,
 }
 
-pub(crate) trait CodeLanguage<'a> {
-    fn get_indent(&self) -> &'a str;
-    fn get_comment_prefix(&self) -> &'a str;
-    fn highlight(&self, text: &'a str) -> Vec<(Range<usize>, Style)>;
+pub(crate) trait CodeLanguage {
+    fn get_indent(&self) -> &str;
+    fn get_comment_prefix(&self) -> &str;
+    fn highlight(&self, text: &str) -> Vec<(Range<usize>, Style)>;
 }
 
 pub use crate::code_logos::PLAIN_TEXT;
 
 pub struct Code<'a> {
     content: Rope,
-    language: &'a dyn CodeLanguage<'a>,
+    language: &'a dyn CodeLanguage,
     applying_history: bool,
     history: History,
     current_batch: EditBatch,
@@ -59,7 +59,7 @@ pub struct Code<'a> {
 }
 
 impl<'a> Code<'a> {
-    pub fn new(text: &str, language: &'a dyn CodeLanguage<'a>) -> Self {
+    pub fn new(text: &str, language: &'a dyn CodeLanguage) -> Self {
         Self {
             content: Rope::from_str(text),
             language,
@@ -217,10 +217,7 @@ impl<'a> Code<'a> {
         results.sort_by(|a, b| {
             let len_a = a.0.end - a.0.start + 1;
             let len_b = b.0.end - b.0.start + 1;
-            match len_b.cmp(&len_a) {
-                std::cmp::Ordering::Equal => b.1.cmp(&a.1),
-                other => other,
-            }
+            len_b.cmp(&len_a)
         });
 
         results
@@ -484,7 +481,7 @@ impl<'a> Iterator for ChunksBytes<'a> {
 
 /// An implementation of a graphemes iterator, for iterating over the graphemes of a RopeSlice.
 pub struct RopeGraphemes<'a> {
-    text: ropey::RopeSlice<'a>,
+    text: RopeSlice<'a>,
     chunks: ropey::iter::Chunks<'a>,
     cur_chunk: &'a str,
     cur_chunk_start: usize,
@@ -579,12 +576,15 @@ pub fn grapheme_width(g: RopeSlice) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::marker::PhantomData;
+    use std::sync::LazyLock;
+    use crate::code_logos::LogosCodeLanguage;
     use super::*;
 
     #[test]
     fn test_insert() {
-        let x: &dyn CodeLanguage = PLAIN_TEXT;
-        let mut code = Code::new("", PLAIN_TEXT);
+        let mut code = Code::new("", &*PLAIN_TEXT);
         code.insert(0, "Hello ");
         code.insert(6, "World");
         assert_eq!(code.content.to_string(), "Hello World");
@@ -592,14 +592,14 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut code = Code::new("Hello World", PLAIN_TEXT.clone());
+        let mut code = Code::new("Hello World", &*PLAIN_TEXT);
         code.remove(5, 11);
         assert_eq!(code.content.to_string(), "Hello");
     }
 
     #[test]
     fn test_undo() {
-        let mut code = Code::new("", PLAIN_TEXT.clone());
+        let mut code = Code::new("", &*PLAIN_TEXT);
 
         code.tx();
         code.insert(0, "Hello ");
@@ -618,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_redo() {
-        let mut code = Code::new("", PLAIN_TEXT.clone());
+        let mut code = Code::new("", &*PLAIN_TEXT);
 
         code.tx();
         code.insert(0, "Hello");
@@ -633,30 +633,31 @@ mod tests {
 
     #[test]
     fn test_indentation_level0() {
-        let mut code = Code::new("", PLAIN_TEXT.clone());
+        let mut code = Code::new("", &*PLAIN_TEXT);
         code.insert(0, "    hello world");
         assert_eq!(code.indentation_level(0, 10), 0);
     }
 
-    static INDENT_LANG: CodeLanguage<PlainTextToken> = CodeLanguage::new("    ", "#");
+    pub static INDENT_LANG: LazyLock<LogosCodeLanguage<crate::code_logos::PlainTextToken>> =
+        LazyLock::new(|| LogosCodeLanguage::new("  ", "#", HashMap::new()));
 
     #[test]
     fn test_indentation_level() {
-        let mut code = Code::new("", INDENT_LANG.clone());
+        let mut code = Code::new("", &*INDENT_LANG);
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 1);
     }
 
     #[test]
     fn test_indentation_level2() {
-        let mut code = Code::new("", INDENT_LANG.clone());
+        let mut code = Code::new("", &*INDENT_LANG);
         code.insert(0, "        print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 2);
     }
 
     #[test]
     fn test_is_only_indentation_before() {
-        let mut code = Code::new("", INDENT_LANG.clone());
+        let mut code = Code::new("", &*INDENT_LANG);
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.is_only_indentation_before(0, 4), true);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -664,7 +665,7 @@ mod tests {
 
     #[test]
     fn test_is_only_indentation_before2() {
-        let mut code = Code::new("", PLAIN_TEXT.clone());
+        let mut code = Code::new("", &*PLAIN_TEXT);
         code.insert(0, "    Hello, World");
         assert_eq!(code.is_only_indentation_before(0, 4), false);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -673,7 +674,7 @@ mod tests {
     #[test]
     fn test_smart_paste_1() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(initial, INDENT_LANG.clone());
+        let mut code = Code::new(initial, &*INDENT_LANG);
 
         let offset = 30;
         let paste = "if start == end && start == self.code.len() {\n    return;\n}";
@@ -686,7 +687,7 @@ mod tests {
     #[test]
     fn test_smart_paste_2() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(initial, INDENT_LANG.clone());
+        let mut code = Code::new(initial, &*INDENT_LANG);
 
         let offset = 30;
         let paste = "    if start == end && start == self.code.len() {\n        return;\n    }";

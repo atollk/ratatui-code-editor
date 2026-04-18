@@ -102,7 +102,7 @@ pub enum DefaultAction {
 }
 
 impl Action for DefaultAction {
-    fn apply(&mut self, editor: &mut Editor) {
+    fn apply<'a>(&mut self, editor: &mut Editor<'a>) {
         match self {
             DefaultAction::MoveRight { shift } => {
                 let shift = *shift;
