@@ -202,7 +202,7 @@ impl Code {
 
         // TODO: allow slice instead of String
         let text = self.content.to_string();
-        let mut results = self.language.highlight(&text[start..=end]);
+        let mut results = self.language.highlight(&text[start..end]);
 
         results.sort_by(|a, b| {
             let len_a = a.0.end - a.0.start + 1;
