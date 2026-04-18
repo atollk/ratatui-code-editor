@@ -1,6 +1,8 @@
+use crate::code::CodeLanguage;
 use logos::Logos;
 use ratatui_core::style::Style;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::Range;
 use std::sync::LazyLock;
@@ -13,7 +15,10 @@ pub struct LogosCodeLanguage<'a, Token: logos::Logos<'a>> {
     token: PhantomData<Token>,
 }
 
-impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> LogosCodeLanguage<'a, Token> {
+impl<'a, Token> LogosCodeLanguage<'a, Token>
+where
+    Token: logos::Logos<'a, Extras: Default, Source = str>,
+{
     pub fn new(indent: &'a str, comment_prefix: &'a str, theme: HashMap<Token, Style>) -> Self {
         LogosCodeLanguage {
             indent,
@@ -24,8 +29,9 @@ impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> LogosCodeLangua
     }
 }
 
-impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> crate::code::CodeLanguage
-    for LogosCodeLanguage<'a, Token>
+impl<'a, Token> crate::code::CodeLanguage for LogosCodeLanguage<'a, Token>
+where
+    Token: for<'s> logos::Logos<'s, Extras: Default, Source = str> + Eq + Hash,
 {
     fn get_indent(&self) -> &'a str {
         self.indent
@@ -40,25 +46,26 @@ impl<'a, Token: logos::Logos<'a, Extras: Default, Source = str>> crate::code::Co
             .spanned()
             .filter_map(|(token, span)| token.map(|token| (token, span)).ok())
             .collect();
-
-        let mut results = Vec::new();
-        for (token, span) in tokens {
-            // TODO
-        }
-
-        results
+        tokens
+            .into_iter()
+            .filter_map(|(token, span)| {
+                let style = self.theme.get(&token);
+                style.map(|style| (span, style.clone()))
+            })
+            .collect()
     }
 }
 
-pub static PLAIN_TEXT: LazyLock<LogosCodeLanguage<PlainTextToken>> =
-    LazyLock::new(|| LogosCodeLanguage {
+pub static PLAIN_TEXT: LazyLock<Box<dyn CodeLanguage + Send + Sync>> = LazyLock::new(|| {
+    Box::new(LogosCodeLanguage {
         indent: "  ",
         comment_prefix: "//",
         theme: HashMap::new(),
-        token: PhantomData,
-    });
+        token: PhantomData::<PlainTextToken>,
+    })
+});
 
-#[derive(Logos, Clone, Debug)]
+#[derive(Logos, Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) enum PlainTextToken {
     #[regex(".+", allow_greedy = true)]
     Any,

@@ -21,16 +21,16 @@ strip = true
 [workspace]
 members = [
     ".",
-#    "examples/minimal",
-#    "examples/editor",
-#    "examples/half",
-#    "examples/split",
-#    "examples/marks",
-#    "examples/lsp",
+    "examples/minimal",
+    "examples/editor",
+    "examples/half",
+    "examples/split",
+    "examples/marks",
+    "examples/lsp",
 ]
 
 [workspace.dependencies]
-ratatui-code-editor = { path = ".", features = ["crossterm", "tree-sitter-languages"] }
+ratatui-code-editor = { path = ".", features = ["crossterm"] }
 anyhow = "^1.0"
 crossterm = "~0.29"
 ratatui = "~0.30"

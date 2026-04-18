@@ -338,6 +338,7 @@ impl<'a> Editor<'a> {
                 .ok()
                 .ok_or_else(|| anyhow!("cant get clipboard"));
         }
+        #[allow(unreachable_code)]
         Ok(self.clipboard.clone())
     }
 

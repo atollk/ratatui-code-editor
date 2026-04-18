@@ -41,7 +41,7 @@ pub struct EditState {
     pub selection: Option<Selection>,
 }
 
-pub(crate) trait CodeLanguage {
+pub trait CodeLanguage {
     fn get_indent(&self) -> &str;
     fn get_comment_prefix(&self) -> &str;
     fn highlight(&self, text: &str) -> Vec<(Range<usize>, Style)>;
@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let mut code = Code::new("", &*PLAIN_TEXT);
+        let mut code = Code::new("", &**PLAIN_TEXT);
         code.insert(0, "Hello ");
         code.insert(6, "World");
         assert_eq!(code.content.to_string(), "Hello World");
@@ -592,14 +592,14 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut code = Code::new("Hello World", &*PLAIN_TEXT);
+        let mut code = Code::new("Hello World", &**PLAIN_TEXT);
         code.remove(5, 11);
         assert_eq!(code.content.to_string(), "Hello");
     }
 
     #[test]
     fn test_undo() {
-        let mut code = Code::new("", &*PLAIN_TEXT);
+        let mut code = Code::new("", &**PLAIN_TEXT);
 
         code.tx();
         code.insert(0, "Hello ");
@@ -618,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_redo() {
-        let mut code = Code::new("", &*PLAIN_TEXT);
+        let mut code = Code::new("", &**PLAIN_TEXT);
 
         code.tx();
         code.insert(0, "Hello");
@@ -633,7 +633,7 @@ mod tests {
 
     #[test]
     fn test_indentation_level0() {
-        let mut code = Code::new("", &*PLAIN_TEXT);
+        let mut code = Code::new("", &**PLAIN_TEXT);
         code.insert(0, "    hello world");
         assert_eq!(code.indentation_level(0, 10), 0);
     }
@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     fn test_is_only_indentation_before2() {
-        let mut code = Code::new("", &*PLAIN_TEXT);
+        let mut code = Code::new("", &**PLAIN_TEXT);
         code.insert(0, "    Hello, World");
         assert_eq!(code.is_only_indentation_before(0, 4), false);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
