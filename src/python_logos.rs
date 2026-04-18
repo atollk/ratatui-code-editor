@@ -1,4 +1,10 @@
+use std::collections::HashMap;
 use logos::Logos;
+use crate::code_logos::LogosCodeLanguage;
+
+pub fn python_language<'a>() -> LogosCodeLanguage<'a, PythonLangToken> {
+    LogosCodeLanguage::new("  ", "#", HashMap::new())
+}
 
 /// Logos-based lexer token enum for Python 3.13+
 ///
@@ -15,7 +21,7 @@ use logos::Logos;
 ///   - Comments are emitted as `Comment` (slice includes the leading `#`).
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\f]+")] // skip horizontal whitespace only (newlines matter)
-pub enum Token {
+pub enum PythonLangToken {
 
     // -------------------------------------------------------------------------
     // Comments
