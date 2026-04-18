@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -20,8 +21,8 @@ fn main() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let language = ratatui_code_editor::rust_logos::rust_language();
-    let mut editor = Editor::new(&language, &content);
+    let language = ratatui_code_editor::rust_logos::rust_language(HashMap::new());
+    let mut editor = Editor::new(Box::new(language), &content);
 
     let mut editor_area = ratatui::layout::Rect::default();
 

@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use logos::Logos;
+use ratatui_core::style::Style;
 use crate::code_logos::LogosCodeLanguage;
 
-pub fn python_language<'a>() -> LogosCodeLanguage<'a, PythonLangToken> {
-    LogosCodeLanguage::new("  ", "#", HashMap::new())
+pub fn python_language<'a>(theme: HashMap<PythonLangToken, Style>) -> LogosCodeLanguage<'a, PythonLangToken> {
+    LogosCodeLanguage::new("  ", "#", theme)
 }
 
 /// Logos-based lexer token enum for Python 3.13+

@@ -20,9 +20,9 @@ type HightlightCache = HashMap<(usize, usize), Vec<Hightlight>>;
 
 /// Represents the text editor, which holds the code buffer, cursor, selection,
 /// theme, scroll offsets, highlight cache, clipboard, and user mark intervals.
-pub struct Editor<'a> {
+pub struct Editor {
     /// Code buffer and editing/highlighting logic for the current language
-    pub(crate) code: Code<'a>,
+    pub(crate) code: Code,
     /// Current cursor position as a character index in the document
     pub(crate) cursor: usize,
 
@@ -51,9 +51,9 @@ pub struct Editor<'a> {
     pub(crate) highlights_cache: RefCell<HightlightCache>,
 }
 
-impl<'a> Editor<'a> {
+impl Editor {
     pub fn new(
-        language: &'a dyn CodeLanguage,
+        language: Box<dyn CodeLanguage>,
         text: &str,
     ) -> Self {
         Self {
@@ -400,11 +400,11 @@ impl<'a> Editor<'a> {
         self.offset_x
     }
 
-    pub fn code_mut(&mut self) -> &mut Code<'a> {
+    pub fn code_mut(&mut self) -> &mut Code {
         &mut self.code
     }
 
-    pub fn code_ref(&self) -> &Code<'a> {
+    pub fn code_ref(&self) -> &Code {
         &self.code
     }
 
@@ -455,7 +455,7 @@ impl<'a> Editor<'a> {
             let cursor_visual_col: usize = {
                 let slice = self.code.char_slice(
                     line_start_char,
-                    line_start_char + cursor_char_col.min(line_len),
+                    line_start_char + cursor_char_col.min(line_len as usize),
                 );
                 RopeGraphemes::new(&slice).map(grapheme_width).sum()
             };

@@ -102,7 +102,7 @@ pub enum DefaultAction {
 }
 
 impl Action for DefaultAction {
-    fn apply<'a>(&mut self, editor: &mut Editor<'a>) {
+    fn apply(&mut self, editor: &mut Editor) {
         match self {
             DefaultAction::MoveRight { shift } => {
                 let shift = *shift;
@@ -285,7 +285,7 @@ impl Action for DefaultAction {
                 code.tx();
                 code.set_state_before(cursor, selection);
 
-                let comment_text = code.comment();
+                let comment_text = code.comment().to_owned();
                 let comment_len = comment_text.chars().count();
 
                 let lines_to_handle = if let Some(sel) = &selection
@@ -375,7 +375,7 @@ impl Action for DefaultAction {
                 code.tx();
                 code.set_state_before(cursor, selection);
 
-                let indent_text = code.indent();
+                let indent_text = code.indent().to_owned();
 
                 let lines_to_handle = if let Some(sel) = &selection
                     && !sel.is_empty()
@@ -433,7 +433,7 @@ impl Action for DefaultAction {
                 code.tx();
                 code.set_state_before(cursor, selection);
 
-                let indent_text = code.indent();
+                let indent_text = code.indent().to_owned();
                 let indent_len = indent_text.chars().count();
 
                 let lines_to_handle = if let Some(sel) = &selection

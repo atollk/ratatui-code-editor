@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::sync::LazyLock;
 
 #[derive(Clone, Debug)]
 pub struct LogosCodeLanguage<'a, Token: logos::Logos<'a>> {
@@ -29,7 +28,7 @@ where
     }
 }
 
-impl<'a, Token> crate::code::CodeLanguage for LogosCodeLanguage<'a, Token>
+impl<'a, Token> CodeLanguage for LogosCodeLanguage<'a, Token>
 where
     Token: for<'s> logos::Logos<'s, Extras: Default, Source = str> + Eq + Hash,
 {
@@ -56,14 +55,14 @@ where
     }
 }
 
-pub static PLAIN_TEXT: LazyLock<Box<dyn CodeLanguage + Send + Sync>> = LazyLock::new(|| {
+pub fn plain_text_lang() -> Box<dyn CodeLanguage> {
     Box::new(LogosCodeLanguage {
         indent: "  ",
         comment_prefix: "//",
         theme: HashMap::new(),
         token: PhantomData::<PlainTextToken>,
     })
-});
+}
 
 #[derive(Logos, Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) enum PlainTextToken {

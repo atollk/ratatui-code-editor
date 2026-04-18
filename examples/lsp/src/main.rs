@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -16,8 +17,8 @@ fn main() -> anyhow::Result<()> {
 
     let filename = String::from("test.rs");
     let content = "fn main() {\n    println!(\"Hello, world!\");\n}";
-    let language = ratatui_code_editor::rust_logos::rust_language();
-    let mut editor = Editor::new(&language, &content);
+    let language = ratatui_code_editor::rust_logos::rust_language(HashMap::new());
+    let mut editor = Editor::new(Box::new(language), &content);
     let mut editor_area = ratatui::layout::Rect::default();
 
     editor.set_change_callback(Box::new(move |changes| {

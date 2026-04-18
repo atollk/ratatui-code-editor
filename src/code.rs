@@ -47,19 +47,17 @@ pub trait CodeLanguage {
     fn highlight(&self, text: &str) -> Vec<(Range<usize>, Style)>;
 }
 
-pub use crate::code_logos::PLAIN_TEXT;
-
-pub struct Code<'a> {
+pub struct Code {
     content: Rope,
-    language: &'a dyn CodeLanguage,
+    language: Box<dyn CodeLanguage>,
     applying_history: bool,
     history: History,
     current_batch: EditBatch,
     change_callback: Option<Box<dyn Fn(Vec<(usize, usize, usize, usize, String)>)>>,
 }
 
-impl<'a> Code<'a> {
-    pub fn new(text: &str, language: &'a dyn CodeLanguage) -> Self {
+impl Code {
+    pub fn new(text: &str, language: Box<dyn CodeLanguage>) -> Self {
         Self {
             content: Rope::from_str(text),
             language,
@@ -298,11 +296,11 @@ impl<'a> Code<'a> {
         (start, end)
     }
 
-    pub fn indent(&self) -> &'a str {
+    pub fn indent(&self) -> &str {
         self.language.get_indent()
     }
 
-    pub fn comment(&self) -> &'a str {
+    pub fn comment(&self) -> &str {
         self.language.get_comment_prefix()
     }
 
@@ -568,6 +566,7 @@ pub fn grapheme_width(g: RopeSlice) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use crate::code_logos::plain_text_lang;
     use std::collections::HashMap;
     use std::sync::LazyLock;
     use crate::code_logos::LogosCodeLanguage;
@@ -575,7 +574,7 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let mut code = Code::new("", &**PLAIN_TEXT);
+        let mut code = Code::new("", plain_text_lang());
         code.insert(0, "Hello ");
         code.insert(6, "World");
         assert_eq!(code.content.to_string(), "Hello World");
@@ -583,14 +582,14 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut code = Code::new("Hello World", &**PLAIN_TEXT);
+        let mut code = Code::new("Hello World", plain_text_lang());
         code.remove(5, 11);
         assert_eq!(code.content.to_string(), "Hello");
     }
 
     #[test]
     fn test_undo() {
-        let mut code = Code::new("", &**PLAIN_TEXT);
+        let mut code = Code::new("", plain_text_lang());
 
         code.tx();
         code.insert(0, "Hello ");
@@ -609,7 +608,7 @@ mod tests {
 
     #[test]
     fn test_redo() {
-        let mut code = Code::new("", &**PLAIN_TEXT);
+        let mut code = Code::new("", plain_text_lang());
 
         code.tx();
         code.insert(0, "Hello");
@@ -624,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_indentation_level0() {
-        let mut code = Code::new("", &**PLAIN_TEXT);
+        let mut code = Code::new("", plain_text_lang());
         code.insert(0, "    hello world");
         assert_eq!(code.indentation_level(0, 10), 0);
     }
@@ -634,21 +633,21 @@ mod tests {
 
     #[test]
     fn test_indentation_level() {
-        let mut code = Code::new("", &*INDENT_LANG);
+        let mut code = Code::new("", Box::new(INDENT_LANG.clone()));
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 1);
     }
 
     #[test]
     fn test_indentation_level2() {
-        let mut code = Code::new("", &*INDENT_LANG);
+        let mut code = Code::new("", Box::new(INDENT_LANG.clone()));
         code.insert(0, "        print('Hello, World!')");
         assert_eq!(code.indentation_level(0, 10), 2);
     }
 
     #[test]
     fn test_is_only_indentation_before() {
-        let mut code = Code::new("", &*INDENT_LANG);
+        let mut code = Code::new("", Box::new(INDENT_LANG.clone()));
         code.insert(0, "    print('Hello, World!')");
         assert_eq!(code.is_only_indentation_before(0, 4), true);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -656,7 +655,7 @@ mod tests {
 
     #[test]
     fn test_is_only_indentation_before2() {
-        let mut code = Code::new("", &**PLAIN_TEXT);
+        let mut code = Code::new("", plain_text_lang());
         code.insert(0, "    Hello, World");
         assert_eq!(code.is_only_indentation_before(0, 4), false);
         assert_eq!(code.is_only_indentation_before(0, 10), false);
@@ -665,7 +664,7 @@ mod tests {
     #[test]
     fn test_smart_paste_1() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(initial, &*INDENT_LANG);
+        let mut code = Code::new(initial, Box::new(INDENT_LANG.clone()));
 
         let offset = 30;
         let paste = "if start == end && start == self.code.len() {\n    return;\n}";
@@ -678,7 +677,7 @@ mod tests {
     #[test]
     fn test_smart_paste_2() {
         let initial = "fn foo() {\n    let x = 1;\n    \n}";
-        let mut code = Code::new(initial, &*INDENT_LANG);
+        let mut code = Code::new(initial, Box::new(INDENT_LANG.clone()));
 
         let offset = 30;
         let paste = "    if start == end && start == self.code.len() {\n        return;\n    }";

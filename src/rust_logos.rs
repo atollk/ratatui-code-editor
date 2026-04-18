@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use logos::Logos;
+use ratatui_core::style::Style;
 use crate::code_logos::LogosCodeLanguage;
 
-pub fn rust_language<'a>() -> LogosCodeLanguage<'a, RustLangToken> {
-    LogosCodeLanguage::new("  ", "//", HashMap::new())
+pub fn rust_language<'a>(theme: HashMap<RustLangToken, Style>) -> LogosCodeLanguage<'a, RustLangToken> {
+    LogosCodeLanguage::new("  ", "//", theme)
 }
 
 /// Logos-based lexer token enum for the Rust language (2024 edition).
