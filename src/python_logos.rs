@@ -20,7 +20,7 @@ pub fn python_language<'a>(theme: HashMap<PythonLangToken, Style>) -> LogosCodeL
 ///     single Logos regex can express; `FStringStart` is emitted so you can
 ///     hand off to a sub-lexer.
 ///   - Comments are emitted as `Comment` (slice includes the leading `#`).
-#[derive(Logos, Debug, Clone, PartialEq)]
+#[derive(Logos, Debug, Clone, PartialEq, Eq, Hash)]
 #[logos(skip r"[ \t\f]+")] // skip horizontal whitespace only (newlines matter)
 pub enum PythonLangToken {
 
