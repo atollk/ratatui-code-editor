@@ -55,8 +55,8 @@ impl<'a> Editor<'a> {
     pub fn new(
         language: &'a dyn CodeLanguage,
         text: &str,
-    ) -> Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             code: Code::new(text, language),
             cursor: 0,
             offset_y: 0,
@@ -67,7 +67,7 @@ impl<'a> Editor<'a> {
             clipboard: String::new(),
             marks: None,
             highlights_cache: RefCell::new(HashMap::new()),
-        })
+        }
     }
 
     pub fn focus(&mut self, area: &Rect) {

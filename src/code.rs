@@ -70,10 +70,6 @@ impl<'a> Code<'a> {
         }
     }
 
-    fn on_change(&mut self) {
-        todo!()
-    }
-
     pub fn point(&self, offset: usize) -> (usize, usize) {
         let row = self.content.char_to_line(offset);
         let line_start = self.content.line_to_char(row);
@@ -178,8 +174,6 @@ impl<'a> Code<'a> {
                 },
             });
         }
-
-        self.on_change();
     }
 
     pub fn remove(&mut self, from: usize, to: usize) {
@@ -195,8 +189,6 @@ impl<'a> Code<'a> {
                 },
             });
         }
-
-        self.on_change();
     }
 
     pub fn is_highlight(&self) -> bool {
@@ -577,7 +569,6 @@ pub fn grapheme_width(g: RopeSlice) -> usize {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::marker::PhantomData;
     use std::sync::LazyLock;
     use crate::code_logos::LogosCodeLanguage;
     use super::*;

@@ -1,19 +1,16 @@
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::layout::{Constraint, Direction, Layout, Position};
 use ratatui::widgets::{Block, Borders};
-use ratatui::{Terminal, backend::CrosstermBackend};
+use ratatui::{backend::CrosstermBackend, Terminal};
 use ratatui_code_editor::editor::Editor;
-use ratatui_code_editor::theme::vesper;
-use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
 use std::io::stdout;
 
 fn main() -> anyhow::Result<()> {
     let filename = "src/code.rs";
-    let language = get_language_by_name("rust");
     let content = std::fs::read_to_string(filename)?;
 
     enable_raw_mode()?;
@@ -23,9 +20,8 @@ fn main() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let theme = vesper();
-
-    let mut editor = Editor::new(language, &content, theme)?;
+    let language = ratatui_code_editor::rust_logos::rust_language();
+    let mut editor = Editor::new(&language, &content);
 
     let mut editor_area = ratatui::layout::Rect::default();
 

@@ -12,3 +12,4 @@ pub mod utils;
 pub mod code_logos;
 
 pub mod python_logos;
+pub mod rust_logos;

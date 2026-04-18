@@ -1,12 +1,10 @@
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{Terminal, backend::CrosstermBackend, layout::Position};
+use ratatui::{backend::CrosstermBackend, layout::Position, Terminal};
 use ratatui_code_editor::editor::Editor;
-use ratatui_code_editor::theme::vesper;
-use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
 use std::io::stdout;
 
 fn main() -> anyhow::Result<()> {
@@ -17,7 +15,8 @@ fn main() -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let content = "fn main() {\n    println!(\"Hello, world!\");\n}";
-    let mut editor = Editor::new(get_language_by_name("rust"), content, vesper())?;
+    let language = ratatui_code_editor::rust_logos::rust_language();
+    let mut editor = Editor::new(&language, &content);
     let mut editor_area = ratatui::layout::Rect::default();
 
     loop {

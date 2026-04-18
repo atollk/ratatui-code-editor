@@ -2,20 +2,17 @@ use crossterm::event::MouseEvent;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::layout::{Constraint, Direction, Layout, Position, Rect};
 use ratatui::widgets::{Block, Borders};
-use ratatui::{Terminal, backend::CrosstermBackend};
+use ratatui::{backend::CrosstermBackend, Terminal};
 use ratatui_code_editor::editor::Editor;
-use ratatui_code_editor::theme::vesper;
-use ratatui_code_editor::tree_sitter_languages::get_language_by_name;
 use std::io::stdout;
 
 fn main() -> anyhow::Result<()> {
     let filename1 = "src/code.rs";
     let filename2 = "src/editor.rs";
-    let language = get_language_by_name("rust");
     let content1 = std::fs::read_to_string(filename1).unwrap_or_default();
     let content2 = std::fs::read_to_string(filename2).unwrap_or_default();
 
@@ -26,10 +23,9 @@ fn main() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let theme = vesper();
-
-    let mut editor1 = Editor::new(language.clone(), &content1, theme.clone())?;
-    let mut editor2 = Editor::new(language, &content2, theme)?;
+    let language = ratatui_code_editor::rust_logos::rust_language();
+    let mut editor1 = Editor::new(&language, &content1);
+    let mut editor2 = Editor::new(&language, &content2);
 
     let mut editor1_area = ratatui::layout::Rect::default();
     let mut editor2_area = ratatui::layout::Rect::default();
